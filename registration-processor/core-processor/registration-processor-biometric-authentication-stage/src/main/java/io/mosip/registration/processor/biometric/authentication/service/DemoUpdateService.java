@@ -9,6 +9,7 @@ import io.mosip.kernel.core.logger.spi.Logger;
 import io.mosip.kernel.core.util.CryptoUtil;
 import io.mosip.kernel.core.util.DateUtils;
 import io.mosip.kernel.core.util.JsonUtils;
+import io.mosip.kernel.core.util.exception.JsonProcessingException;
 import io.mosip.registration.processor.biometric.authentication.constants.BiometricAuthenticationConstants;
 import io.mosip.registration.processor.biometric.authentication.dto.*;
 import io.mosip.registration.processor.biometric.authentication.exception.DataShareException;
@@ -36,6 +37,7 @@ import io.mosip.registration.processor.core.spi.restclient.RegistrationProcessor
 import io.mosip.registration.processor.core.status.util.StatusUtil;
 import io.mosip.registration.processor.core.status.util.TrimExceptionMessage;
 import io.mosip.registration.processor.core.util.JsonUtil;
+import io.mosip.registration.processor.core.util.RegistrationExceptionMapperUtil;
 import io.mosip.registration.processor.packet.storage.dto.Document;
 import io.mosip.registration.processor.packet.storage.entity.DemoUpdateManualVerificationEntity;
 import io.mosip.registration.processor.packet.storage.entity.DemoUpdateManualVerificationPKEntity;
@@ -51,6 +53,8 @@ import io.mosip.registration.processor.status.exception.TablenotAccessibleExcept
 import io.mosip.registration.processor.status.service.RegistrationStatusService;
 import org.apache.commons.lang.StringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
+import org.json.JSONArray;
+import org.json.JSONException;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -107,9 +111,18 @@ public class DemoUpdateService {
     @Value("${activemq.message.format}")
     private String messageFormat;
 
+    /** Comman seperated stage names that should be excluded while pushing to queue. */
+    @Value("#{T(java.util.Arrays).asList('${mosip.registration.processor.demo.manual.verification.queue.exclude-field-names:email}')}")
+    private List<String> queueExcludeFiledNames;
+
     @Autowired
     private BasePacketRepository<DemoUpdateManualVerificationEntity, String> basePacketRepository;
 
+    @Autowired
+    private BiometricAuthenticationStage biometricAuthenticationStage;
+
+    @Autowired
+    RegistrationExceptionMapperUtil registrationExceptionMapperUtil;
 
     /** The Constant USER. */
     private static final String USER = "MOSIP_SYSTEM";
@@ -156,7 +169,7 @@ public class DemoUpdateService {
                             mosipQueueManager.send(queue, JsonUtils.javaObjectToJsonString(mar).getBytes(), demoupdateRequestAddress, mvRequestMessageTTL);
                         regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
                                 RegId, "DemoUpdateServiceImpl::pushRequestToQueue()::success");
-                        updateDemoManualVerificationEntityRID(mve, requestId);
+                        updateDemoManualVerificationEntityRID(dto, requestId);
 
                     }
                 }catch (Exception e){
@@ -195,8 +208,7 @@ public class DemoUpdateService {
         basePacketRepository.save(manualVerificationEntity);
     }
 
-    private void updateDemoManualVerificationEntityRID(List<DemoUpdateManualVerificationEntity> mves, String requestId) {
-        mves.stream().forEach(mve -> {
+    private void updateDemoManualVerificationEntityRID(DemoUpdateManualVerificationEntity mve, String requestId) {
             regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
                     mve.getId().getRegId(), "ManualVerificationServiceImpl::updateManualVerificationEntityRID()::entry");
             mve.setStatusCode(DemoManualVerificationStatus.INQUEUE.name());
@@ -206,7 +218,47 @@ public class DemoUpdateService {
             basePacketRepository.update(mve);
             regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
                     mve.getId().getRegId(), "ManualVerificationServiceImpl::updateManualVerificationEntityRID()::exit");
+    }
+
+    private JSONObject validateIdrepoResponse(org.json.JSONObject obj ) throws Exception {
+        if (obj.get("response") != JSONObject.NULL) {
+            return obj.getJSONObject("response").getJSONObject("identity");
+        } else if (obj.get("errors") != JSONObject.NULL) {
+            JSONArray arr = obj.getJSONArray("errors");
+            for (int i = 0; i < arr.length(); i++) {
+//                log.error("idrepo identity service " + arr.getJSONObject(i).getString("message"));
+                throw new Exception(arr.getJSONObject(i).getString("message"));
+//                    return arr.getJSONObject(i).getString("message");
+
+            }
+
+        }
+        return null;
+    }
+
+    public boolean isupdatevalid(String rid, String process) throws Exception{
+        LinkedHashMap<String, Object> policy = getPolicy();
+
+        Map<String, String> policyMap = getPolicyMap(policy);
+
+        // set rid demographic
+        Map<String, String> demographicMap = policyMap.entrySet().stream().filter(e -> e.getValue() != null &&
+                (!META_INFO.equalsIgnoreCase(e.getValue()) && !AUDITS.equalsIgnoreCase(e.getValue())))
+                .collect(Collectors.toMap(e -> e.getKey(), e -> e.getValue()));
+        Map<String,String> packetDetails = packetManagerService.getFields(rid, demographicMap.values().stream().collect(Collectors.toList()), process, ProviderStageName.MANUAL_VERIFICATION);
+
+        List<String> res = new ArrayList<>();
+        List<String> check = new LinkedList<String>(queueExcludeFiledNames);
+
+        packetDetails.forEach((key,value) ->{
+            if (packetDetails.get(key) != null){
+                res.add(key);
+            }
+
         });
+        boolean valid = false;
+        res.removeAll(check);
+        return res.size()>0;
     }
 
     private String getDataShareUrl(String id, String process) throws Exception {
@@ -224,7 +276,9 @@ public class DemoUpdateService {
                         pathsegmentsPcn, "", "", String.class);
                 org.json.JSONObject json = new org.json.JSONObject(response);
 
-                JSONObject identity = json.getJSONObject("response").getJSONObject("identity");
+
+                JSONObject identity = validateIdrepoResponse(json);
+
 
 
                 System.out.println("idrepo identity json for pcn : "+identity);
@@ -409,7 +463,7 @@ public class DemoUpdateService {
 
         try {
 
-            List<ManualVerificationEntity> entities = retrieveInqueuedRecordsByRid(regId);
+            List<DemoUpdateManualVerificationEntity> entities = retrieveInqueuedRecordsByRid(regId);
 
             // check if response is marked for resend
             if (isResendFlow(regId, manualVerificationDTO, entities)) {
@@ -422,7 +476,7 @@ public class DemoUpdateService {
                 description.setCode(PlatformSuccessMessages.RPR_MANUAL_VERIFICATION_RESEND.getCode());
                 messageDTO.setInternalError(true);
                 messageDTO.setIsValid(isTransactionSuccessful);
-                manualVerificationStage.sendMessage(messageDTO);
+                biometricAuthenticationStage.sendMessage(messageDTO);
             } else {
                 // call success flow and process the response received from manual verification system
                 isTransactionSuccessful = successFlow(
@@ -471,7 +525,7 @@ public class DemoUpdateService {
             String moduleId = isTransactionSuccessful
                     ? PlatformSuccessMessages.RPR_MANUAL_VERIFICATION_APPROVED.getCode()
                     : description.getCode();
-            String moduleName = ModuleName.MANUAL_VERIFICATION.toString();
+            String moduleName = ModuleName.BIOMETRIC_AUTHENTICATION.toString();
             registrationStatusService.updateRegistrationStatus(registrationStatusDto, moduleId, moduleName);
 
             String eventId = isTransactionSuccessful ? io.mosip.registration.processor.core.code.EventId.RPR_402.toString() : io.mosip.registration.processor.core.code.EventId.RPR_405.toString();
@@ -514,7 +568,7 @@ public class DemoUpdateService {
 
     private List<DemoUpdateManualVerificationEntity> retrieveInqueuedRecordsByRid(String regId) {
 
-        List<DemoUpdateManualVerificationEntity> entities = basePacketRepository.getAllAssignedRecord(
+        List<DemoUpdateManualVerificationEntity> entities = basePacketRepository.getAllDemoAssignedRecord(
                 regId, DemoManualVerificationStatus.INQUEUE.name());
 
         if (CollectionUtils.isEmpty(entities)) {
@@ -526,6 +580,139 @@ public class DemoUpdateService {
         }
 
         return entities;
+    }
+
+    public boolean isResendFlow(String regId, ManualAdjudicationResponseDTO manualVerificationDTO, List<DemoUpdateManualVerificationEntity> entities) throws JsonProcessingException {
+        boolean isResendFlow = false;
+        if(manualVerificationDTO.getReturnValue() == 2 || !isResponseValidationSuccess(regId, manualVerificationDTO, entities)) {
+            regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
+                    regId, "Received resend request from manual verification application. This will be marked for reprocessing.");
+
+            // updating status code to pending so that it can be marked for manual verification again
+            entities.forEach(e -> {
+                e.setStatusCode(DemoManualVerificationStatus.PENDING.name());
+                basePacketRepository.update(e);
+            });
+            isResendFlow = true;
+        }
+        return isResendFlow;
+    }
+    private boolean isResponseValidationSuccess(String regId, ManualAdjudicationResponseDTO manualVerificationDTO, List<DemoUpdateManualVerificationEntity> entities) throws JsonProcessingException {
+        boolean isValidationSuccess = true;
+        // if candidate count is a positive number
+        if (manualVerificationDTO.getReturnValue() == 1
+                && manualVerificationDTO.getCandidateList() != null
+                && manualVerificationDTO.getCandidateList().getCount() > 0) {
+
+            // get the reference ids from response candidates.
+            List<String> refIdsFromResponse = !CollectionUtils.isEmpty(manualVerificationDTO.getCandidateList().getCandidates()) ?
+                    manualVerificationDTO.getCandidateList().getCandidates().stream().map(c -> c.getReferenceId()).collect(Collectors.toList())
+                    : Collections.emptyList();
+
+            // get the reference ids from manual verification table entities.
+            List<String> refIdsFromEntities = entities.stream().map(e -> e.getId().getMatchedRefId()).collect(Collectors.toList());
+
+            if (!manualVerificationDTO.getCandidateList().getCount().equals(refIdsFromResponse.size())) {
+                String errorMessage = "Validation error - Candidate count does not match reference ids count.";
+                regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
+                        regId, errorMessage);
+//                auditLogRequestBuilder.createAuditRequestBuilder(
+//                        errorMessage + " Response received : "
+//                                +JsonUtils.javaObjectToJsonString(manualVerificationDTO), EventId.RPR_405.toString(),
+//                        EventName.EXCEPTION.name(), EventType.BUSINESS.name(),
+//                        PlatformSuccessMessages.RPR_MANUAL_VERIFICATION_RESEND.getCode(), ModuleName.MANUAL_VERIFICATION.toString(), regId);
+                isValidationSuccess = false;
+
+            } else if (!refIdsFromEntities.containsAll(refIdsFromResponse)) {
+                String errorMessage = "Validation error - Received ReferenceIds does not match reference ids in manual verification table.";
+                regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
+                        regId, errorMessage);
+//                auditLogRequestBuilder.createAuditRequestBuilder(
+//                        errorMessage + " Response received : "
+//                                +JsonUtils.javaObjectToJsonString(manualVerificationDTO), EventId.RPR_405.toString(),
+//                        EventName.EXCEPTION.name(), EventType.BUSINESS.name(),
+//                        PlatformSuccessMessages.RPR_MANUAL_VERIFICATION_RESEND.getCode(), ModuleName.MANUAL_VERIFICATION.toString(), regId);
+                isValidationSuccess = false;
+            }
+        }
+        return isValidationSuccess;
+    }
+
+    private boolean successFlow(String regId, ManualAdjudicationResponseDTO manualVerificationDTO,
+                                List<DemoUpdateManualVerificationEntity> entities,
+                                InternalRegistrationStatusDto registrationStatusDto, MessageDTO messageDTO,
+                                LogDescription description) throws com.fasterxml.jackson.core.JsonProcessingException {
+
+        boolean isTransactionSuccessful = false;
+        String statusCode = manualVerificationDTO.getReturnValue() == 1 &&
+                CollectionUtils.isEmpty(manualVerificationDTO.getCandidateList().getCandidates()) ?
+                DemoManualVerificationStatus.APPROVED.name() : DemoManualVerificationStatus.REJECTED.name();
+
+        for (int i = 0; i < entities.size(); i++) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            byte[] responsetext = objectMapper.writeValueAsBytes(manualVerificationDTO);
+
+            DemoUpdateManualVerificationEntity manualVerificationEntity=entities.get(i);
+            manualVerificationEntity.setStatusCode(statusCode);
+            manualVerificationEntity.setReponseText(responsetext);
+            manualVerificationEntity.setStatusComment(statusCode.equalsIgnoreCase(DemoManualVerificationStatus.APPROVED.name()) ?
+                    StatusUtil.MANUAL_VERIFIER_APPROVED_PACKET.getMessage() :
+                    StatusUtil.MANUAL_VERIFIER_REJECTED_PACKET.getMessage());
+            entities.set(i, manualVerificationEntity);
+        }
+        isTransactionSuccessful = true;
+        registrationStatusDto
+                .setLatestTransactionTypeCode(RegistrationTransactionTypeCode.BIOMETRIC_AUTHENTICATION.toString());
+        registrationStatusDto.setRegistrationStageName(registrationStatusDto.getRegistrationStageName());
+
+        if (statusCode != null && statusCode.equalsIgnoreCase(DemoManualVerificationStatus.APPROVED.name())) {
+//            if (registrationStatusDto.getRegistrationType().equalsIgnoreCase(RegistrationType.LOST.toString())) {
+//                for(ManualVerificationEntity detail: entities) {
+//                    packetInfoManager.saveRegLostUinDet(regId, detail.getId().getMatchedRefId(),
+//                            PlatformSuccessMessages.RPR_MANUAL_VERIFICATION_APPROVED.getCode(),
+//                            ModuleName.MANUAL_VERIFICATION.toString());
+//                }
+//            }
+            messageDTO.setIsValid(isTransactionSuccessful);
+            biometricAuthenticationStage.sendMessage(messageDTO);
+            registrationStatusDto.setStatusComment(StatusUtil.MANUAL_VERIFIER_APPROVED_PACKET.getMessage());
+            registrationStatusDto.setSubStatusCode(StatusUtil.MANUAL_VERIFIER_APPROVED_PACKET.getCode());
+            registrationStatusDto.setStatusCode(RegistrationStatusCode.PROCESSING.toString());
+            registrationStatusDto
+                    .setLatestTransactionStatusCode(RegistrationTransactionStatusCode.SUCCESS.toString());
+
+            description.setMessage(PlatformSuccessMessages.RPR_MANUAL_VERIFICATION_APPROVED.getMessage());
+            description.setCode(PlatformSuccessMessages.RPR_MANUAL_VERIFICATION_APPROVED.getCode());
+
+        } else if (statusCode != null && statusCode.equalsIgnoreCase(DemoManualVerificationStatus.REJECTED.name())) {
+            registrationStatusDto.setStatusCode(RegistrationStatusCode.REJECTED.toString());
+            registrationStatusDto.setStatusComment(StatusUtil.MANUAL_VERIFIER_REJECTED_PACKET.getMessage());
+            registrationStatusDto.setSubStatusCode(StatusUtil.MANUAL_VERIFIER_REJECTED_PACKET.getCode());
+            registrationStatusDto
+                    .setLatestTransactionStatusCode(RegistrationTransactionStatusCode.FAILED.toString());
+
+            description.setMessage(PlatformErrorMessages.RPR_MANUAL_VERIFICATION_REJECTED.getMessage());
+            description.setCode(PlatformErrorMessages.RPR_MANUAL_VERIFICATION_REJECTED.getCode());
+            messageDTO.setIsValid(Boolean.FALSE);
+            biometricAuthenticationStage.sendMessage(messageDTO);
+        } else {
+            registrationStatusDto.setStatusCode(RegistrationStatusCode.PROCESSING.toString());
+            registrationStatusDto.setStatusComment(StatusUtil.RPR_MANUAL_VERIFICATION_RESEND.getMessage());
+            registrationStatusDto.setSubStatusCode(StatusUtil.RPR_MANUAL_VERIFICATION_RESEND.getCode());
+            registrationStatusDto
+                    .setLatestTransactionStatusCode(RegistrationTransactionStatusCode.IN_PROGRESS.toString());
+
+            description.setMessage(PlatformErrorMessages.RPR_MANUAL_VERIFICATION_RESEND.getMessage());
+            description.setCode(PlatformErrorMessages.RPR_MANUAL_VERIFICATION_RESEND.getCode());
+            messageDTO.setIsValid(Boolean.FALSE);
+            biometricAuthenticationStage.sendMessage(messageDTO);
+        }
+        List<DemoUpdateManualVerificationEntity> maVerificationEntity = new ArrayList<>();
+        for(DemoUpdateManualVerificationEntity manualVerificationEntity: entities) {
+            maVerificationEntity.add(basePacketRepository.update(manualVerificationEntity));
+        }
+
+        return isTransactionSuccessful;
     }
 
 }

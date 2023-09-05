@@ -202,6 +202,10 @@ public class BiometricAuthenticationStage extends MosipVerticleAPIManager {
 		return mosipConnectionFactory.createConnection(typeOfQueue, username, password, failOverBrokerUrl);
 	}
 
+	public void sendMessage(MessageDTO messageDTO) {
+		this.send(this.mosipEventBus, MessageBusAddress.BIOMETRIC_AUTHENTICATION_BUS_OUT, messageDTO);
+	}
+
 	public void consumerListener(Message message) {
 		try {
 			String response = null;
@@ -220,7 +224,7 @@ public class BiometricAuthenticationStage extends MosipVerticleAPIManager {
 			}
 			ManualAdjudicationResponseDTO resp = JsonUtil.readValueWithUnknownProperties(response, ManualAdjudicationResponseDTO.class);
 			if (resp != null) {
-				boolean isProcessingSuccessful = manualAdjudicationService.updatePacketStatus(resp, this.getClass().getSimpleName(),queue);
+				boolean isProcessingSuccessful = demoUpdateService.updatePacketStatus(resp, this.getClass().getSimpleName(),queue);
 
 				if (isProcessingSuccessful)
 					regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
