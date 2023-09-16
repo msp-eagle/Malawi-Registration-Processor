@@ -250,13 +250,15 @@ public class DemoUpdateService {
         List<String> res = new ArrayList<>();
         List<String> check = new LinkedList<String>(queueExcludeFiledNames);
 
+        System.out.println("checking block fields for mvs : "+queueExcludeFiledNames);
+        System.out.println("checking update rid fields");
         packetDetails.forEach((key,value) ->{
             if (packetDetails.get(key) != null){
                 res.add(key);
+                System.out.print(key + " : " + value);
             }
 
         });
-        boolean valid = false;
         res.removeAll(check);
         return res.size()>0;
     }
