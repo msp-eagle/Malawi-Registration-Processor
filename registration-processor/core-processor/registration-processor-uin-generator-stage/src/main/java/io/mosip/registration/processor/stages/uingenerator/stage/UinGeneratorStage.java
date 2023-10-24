@@ -163,10 +163,10 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 	@Value("${mosip.kernel.applicant.type.age.limit:5}")
 	public int minAge;
 
-	public static String dateOfBirthUpdate = null;
-	public static String emailUpdate = null;
-	public static String phoneUpdate = null;
-	public static String updateUin = null;
+//	public static String dateOfBirthUpdate = null;
+//	public static String emailUpdate = null;
+//	public static String phoneUpdate = null;
+//	public static String updateUin = null;
 
 	@Autowired
 	TokenGenerator tokenGen;
@@ -303,15 +303,15 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 						if(idRepoForceMergeEnabled && isUinAlreadyPresent) {
 							handleForceMerge(object, isTransactionSuccessful, description, registrationId,
 									uinResponseDto, registrationStatusDto, demographicIdentity, isUinAlreadyPresent);
-//							if(isApplicantMinor(dateOfBirth)) {
-//								handleChildIdentity(object.getReg_type().toString(), registrationId, uinField, dateOfBirth, email, phone, fetchPerpetualVid(uinField));
-//							}
+							if(isApplicantMinor(dateOfBirth)) {
+								handleChildIdentity(object.getReg_type().toString(), registrationId, uinField, dateOfBirth, email, phone, fetchPerpetualVid(uinField));
+							}
 							
 						}else {
 							handleIdRepoSuccessResponse(registrationStatusDto, registrationId, isUinAlreadyPresent, isTransactionSuccessful, uinResponseDto, object, description);
-//							if(isApplicantMinor(dateOfBirth) && !isUinAlreadyPresent) {
-//								handleChildIdentity(object.getReg_type().toString(), registrationId, uinField , dateOfBirth, email, phone, fetchPerpetualVid(uinField));
-//							}
+							if(isApplicantMinor(dateOfBirth)) {
+								handleChildIdentity(object.getReg_type().toString(), registrationId, uinField , dateOfBirth, email, phone, fetchPerpetualVid(uinField));
+							}
 						}
 						
 					}else {
@@ -330,13 +330,14 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 							|| (RegistrationType.RES_UPDATE.toString()
 									.equalsIgnoreCase(object.getReg_type().toString()))) {
 
-						isTransactionSuccessful = uinUpdate(registrationId, registrationStatusDto.getRegistrationType(), uinField, object, demographicIdentity,
+						 UinUpdateResponseHandler responseHandler = uinUpdate(registrationId, registrationStatusDto.getRegistrationType(), uinField, object, demographicIdentity,
 									description);
+						isTransactionSuccessful = responseHandler.isTransactionSuccessful();
 
-//						handleChildIdentity(object.getReg_type().toString(), registrationId, demographicIdentity.get("UIN").toString(),
-//								(dateOfBirth!=null)&&(!dateOfBirth.isEmpty()) ? dateOfBirth : dateOfBirthUpdate,
-//								(email!=null)&&(!email.isEmpty()) ? email : emailUpdate,
-//								(phone!=null)&&(!phone.isEmpty()) ? phone : phoneUpdate, fetchPerpetualVid(demographicIdentity.get("UIN").toString()));
+						handleChildIdentity(object.getReg_type().toString(), registrationId, demographicIdentity.get("UIN").toString(),
+								(dateOfBirth!=null)&&(!dateOfBirth.isEmpty()) ? dateOfBirth : responseHandler.getDateOfBirth(),
+								(email!=null)&&(!email.isEmpty()) ? email : responseHandler.getEmail(),
+								(phone!=null)&&(!phone.isEmpty()) ? phone : responseHandler.getPhone(), fetchPerpetualVid(demographicIdentity.get("UIN").toString()));
 					}
 				}
 
@@ -495,10 +496,6 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 			}
 		}catch (Exception e){
 			e.printStackTrace();
-		}finally {
-			dateOfBirthUpdate = null;
-			emailUpdate = null;
-			phoneUpdate = null;
 		}
 
 	}
@@ -799,20 +796,21 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 	 * @throws RegistrationProcessorCheckedException
 	 * @throws                                       io.mosip.kernel.core.exception.IOException
 	 */
-	private boolean uinUpdate(String regId, String process, String uin, MessageDTO object, JSONObject demographicIdentity, LogDescription description)
+	private UinUpdateResponseHandler uinUpdate(String regId, String process, String uin, MessageDTO object, JSONObject demographicIdentity, LogDescription description)
 			throws Exception {
 		IdResponseDTO result;
 		boolean isTransactionSuccessful = Boolean.FALSE;
 		List<Documents> documentInfo = getAllDocumentsByRegId(regId, process, demographicIdentity);
-		result = idRepoRequestBuilder(RegistrationType.ACTIVATED.toString().toUpperCase(), regId, documentInfo,
+		UinUpdateResponseHandler uinResponseHandler = idRepoRequestBuilder(RegistrationType.ACTIVATED.toString().toUpperCase(), regId, documentInfo,
 				demographicIdentity);
+		result = uinResponseHandler.getIdResponseDTO();
 		if (isIdResponseNotNull(result)) {
 
 			if ((RegistrationType.ACTIVATED.toString().toUpperCase())
 					.equalsIgnoreCase(result.getResponse().getStatus())) {
-//				generateVid(null, updateUin, Boolean.FALSE);
-				recordHistory(regId,updateUin,"Y",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_SUCCESS.getMessage());
-				updateUin = null;
+				generateVid(null, uinResponseHandler.getUin(), Boolean.FALSE);
+				recordHistory(regId,uinResponseHandler.getUin(),"Y",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_SUCCESS.getMessage());
+//				updateUin = null;
 
 
 				isTransactionSuccessful = true;
@@ -837,9 +835,10 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 							: UINConstants.NULL_IDREPO_RESPONSE);
 			description.setTransactionStatusCode(RegistrationTransactionStatusCode.FAILED.toString());
 			object.setIsValid(Boolean.FALSE);
-			recordHistory(regId,updateUin,"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
+			recordHistory(regId,uinResponseHandler.getUin(),"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
 		}
-		return isTransactionSuccessful;
+		uinResponseHandler.setTransactionSuccessful(isTransactionSuccessful);
+		return uinResponseHandler;
 	}
 
 	public long transactionId(){
@@ -902,13 +901,14 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 	 *             the apis resource access exception
 	 * @throws IOException
 	 */
-	private IdResponseDTO idRepoRequestBuilder(String status, String regId, List<Documents> documentInfo,
+	private UinUpdateResponseHandler idRepoRequestBuilder(String status, String regId, List<Documents> documentInfo,
 			JSONObject demographicIdentity) throws ApisResourceAccessException, IOException {
 		IdResponseDTO idResponseDto;
 		List<String> pathsegments = new ArrayList<>();
 		List<String> pathsegmentsUin = new ArrayList<>();
 		RequestDto requestDto = new RequestDto();
 		String uin = null;
+		UinUpdateResponseHandler responseHandler = new UinUpdateResponseHandler();
 		if (documentInfo != null) {
 			requestDto.setDocuments(documentInfo);
 		}
@@ -923,21 +923,22 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 				org.json.JSONObject json = new org.json.JSONObject(response);
 				uin = json.getJSONObject("response").getJSONObject("identity").getString("UIN");
 				if(json.getJSONObject("response").getJSONObject("identity").has("dateOfBirth")) {
-					dateOfBirthUpdate = json.getJSONObject("response").getJSONObject("identity").getString("dateOfBirth");
+					responseHandler.setDateOfBirth(json.getJSONObject("response").getJSONObject("identity").getString("dateOfBirth"));
 				}
 
 				if(json.getJSONObject("response").getJSONObject("identity").has("email")) {
-					emailUpdate = json.getJSONObject("response").getJSONObject("identity").getString("email");
+					responseHandler.setEmail(json.getJSONObject("response").getJSONObject("identity").getString("email"));
 				}
 
 				if(json.getJSONObject("response").getJSONObject("identity").has("mobileno")) {
-					phoneUpdate = json.getJSONObject("response").getJSONObject("identity").getString("mobileno");
+					responseHandler.setPhone(json.getJSONObject("response").getJSONObject("identity").getString("mobileno"));
 				}
 
 				System.out.println("idrepo response uin : "+uin);
 
 				demographicIdentity.put("UIN", uin);
-				updateUin = uin;
+				responseHandler.setUin(uin);
+//				updateUin = uin;
 
 			}
 		}catch (Exception e){
@@ -965,7 +966,10 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 		idResponseDto = (IdResponseDTO) registrationProcessorRestClientService.patchApi(ApiName.IDREPOSITORY,
 				pathsegments, "", "", idRequestDTO, IdResponseDTO.class);
 
-		return idResponseDto;
+
+		responseHandler.setIdResponseDTO(idResponseDto);
+
+		return responseHandler;
 	}
 
 	/**
@@ -1370,7 +1374,7 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 	 */
 	@SuppressWarnings("unchecked")
 	private IdResponseDTO linkRegIdWrtUin(String lostPacketRegId, String matchedRegId, String process, MessageDTO object,
-			LogDescription description) throws ApisResourceAccessException, IOException, io.mosip.kernel.core.util.exception.JsonProcessingException, PacketManagerException {
+			LogDescription description) throws ApisResourceAccessException, IOException, io.mosip.kernel.core.util.exception.JsonProcessingException, PacketManagerException, VidServiceFailedException, VidCreationException {
 
 		IdResponseDTO idResponse = null;
 		String uin = idRepoService.getUinByRid(matchedRegId, utility.getGetRegProcessorDemographicIdentity());
@@ -1403,6 +1407,7 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 					"", idRequestDTO, IdResponseDTO.class);
 
 			if (isIdResponseNotNull(idResponse)) {
+				generateVid(null,uin,Boolean.FALSE);
 				description.setStatusCode(RegistrationStatusCode.PROCESSED.toString());
 				description.setStatusComment(StatusUtil.LINK_RID_FOR_LOST_PACKET_SUCCESS.getMessage());
 				description.setSubStatusCode(StatusUtil.LINK_RID_FOR_LOST_PACKET_SUCCESS.getCode());
