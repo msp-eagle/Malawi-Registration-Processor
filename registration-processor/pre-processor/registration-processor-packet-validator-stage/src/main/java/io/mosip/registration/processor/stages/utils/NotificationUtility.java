@@ -5,13 +5,17 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import io.mosip.registration.processor.stages.config.NotificationMappingConfig;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.json.JSONException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
@@ -92,6 +96,10 @@ public class NotificationUtility {
 	@Autowired
 	private TemplateGenerator templateGenerator;
 
+	@Qualifier("notificationMappingConfig")
+	@Autowired
+	NotificationMappingConfig mappingConfig;
+
 	/** The resclient. */
 	@Autowired
 	private RestApiClient resclient;
@@ -129,8 +137,19 @@ public class NotificationUtility {
 			setTemplateAndSubject(type, regType, messageSenderDTO);
 		}
 
-		if (allNotificationTypes != null) {
-			for (String notificationType : allNotificationTypes) {
+		Map<String, List<String>> allowedTemplateMap = mappingConfig.getNotification();
+
+		List<String> allowedNotificationTypes = new ArrayList<>();
+		if(allowedTemplateMap.containsKey(messageSenderDTO.getEmailTemplateCode().name())){
+			allowedNotificationTypes.addAll(allowedTemplateMap.get(messageSenderDTO.getEmailTemplateCode().name()));
+
+		}
+		if(allowedTemplateMap.containsKey(messageSenderDTO.getSmsTemplateCode().name())){
+			allowedNotificationTypes.addAll(allowedTemplateMap.get(messageSenderDTO.getSmsTemplateCode().name()));
+		}
+
+		if (allowedNotificationTypes != null) {
+			for (String notificationType : allowedNotificationTypes) {
 				if (notificationType.equalsIgnoreCase("EMAIL")
 						&& (registrationAdditionalInfoDTO.getEmail() != null
 						&& !registrationAdditionalInfoDTO.getEmail().isEmpty())) {

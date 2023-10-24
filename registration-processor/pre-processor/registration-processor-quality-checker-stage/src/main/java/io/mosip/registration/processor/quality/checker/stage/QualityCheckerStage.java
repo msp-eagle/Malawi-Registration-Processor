@@ -242,70 +242,47 @@ public class QualityCheckerStage extends MosipVerticleAPIManager {
 							PlatformErrorMessages.RPR_QCR_BIO_FILE_MISSING.getMessage());
 				}
 				List<BIR> birList = biometricRecord.getSegments();
-				System.out.println("bir size "+birList.size());
 				// get individual biometrics file name from id.json
 				int scoreCounter = 0;
+				for (BIR bir : birList) {
+					BiometricType singleType = bir.getBdbInfo().getType().get(0);
+					List<String> subtype = bir.getBdbInfo().getSubtype();
+					Integer threshold = getThresholdBasedOnType(singleType, subtype);
+					Response<QualityScore> qualityScoreresponse;
 
-				if(birList.size()==1){
-					for (BIR bir : birList) {
-						BiometricType singleType = bir.getBdbInfo().getType().get(0);
-						System.out.println(singleType.value());
-						if(singleType.value().equalsIgnoreCase("FACE")){
-							object.setIsValid(Boolean.FALSE);
-							isTransactionSuccessful = Boolean.FALSE;
-							registrationStatusDto
-									.setLatestTransactionStatusCode(RegistrationTransactionStatusCode.FAILED.toString());
-							registrationStatusDto.setStatusCode(RegistrationStatusCode.REJECTED.toString());
-							registrationStatusDto.setStatusComment("only FACE value is present in the packet");
-							registrationStatusDto.setSubStatusCode(StatusUtil.BIOMETRIC_QUALITY_CHECK_FAILED.getCode());
-							description.setCode(PlatformErrorMessages.BIOMETRIC_QUALITY_CHECK_FAILED.getCode());
-							description.setMessage(PlatformErrorMessages.BIOMETRIC_QUALITY_CHECK_FAILED.getMessage());
-							break;
-						}
-					}
-				}else{
-					for (BIR bir : birList) {
-						BiometricType singleType = bir.getBdbInfo().getType().get(0);
-						List<String> subtype = bir.getBdbInfo().getSubtype();
-						Integer threshold = getThresholdBasedOnType(singleType, subtype);
-						Response<QualityScore> qualityScoreresponse;
-
-						qualityScoreresponse = getBioSdkInstance(singleType).checkQuality(BIRConverter.convertToBIR(bir), null);
-						if(qualityScoreresponse.getStatusCode()<200 || qualityScoreresponse.getStatusCode()>299) {
-							throw new BiometricException(qualityScoreresponse.getStatusCode().toString(),qualityScoreresponse.getStatusMessage());
-						}
-
-						if (qualityScoreresponse.getResponse().getScore() < threshold) {
-							object.setIsValid(Boolean.FALSE);
-							isTransactionSuccessful = Boolean.FALSE;
-							registrationStatusDto
-									.setLatestTransactionStatusCode(RegistrationTransactionStatusCode.FAILED.toString());
-							registrationStatusDto.setStatusCode(RegistrationStatusCode.REJECTED.toString());
-							registrationStatusDto.setStatusComment(StatusUtil.BIOMETRIC_QUALITY_CHECK_FAILED.getMessage());
-							registrationStatusDto.setSubStatusCode(StatusUtil.BIOMETRIC_QUALITY_CHECK_FAILED.getCode());
-							description.setCode(PlatformErrorMessages.BIOMETRIC_QUALITY_CHECK_FAILED.getCode());
-							description.setMessage(PlatformErrorMessages.BIOMETRIC_QUALITY_CHECK_FAILED.getMessage());
-							break;
-						} else {
-							scoreCounter++;
-						}
+					qualityScoreresponse = getBioSdkInstance(singleType).checkQuality(BIRConverter.convertToBIR(bir), null);
+					if(qualityScoreresponse.getStatusCode()<200 || qualityScoreresponse.getStatusCode()>299) {
+						throw new BiometricException(qualityScoreresponse.getStatusCode().toString(),qualityScoreresponse.getStatusMessage());
 					}
 
-					if (scoreCounter == birList.size()) {
-						object.setIsValid(Boolean.TRUE);
-						description.setCode(PlatformSuccessMessages.RPR_QUALITY_CHECK_SUCCESS.getCode());
-						description.setMessage(PlatformSuccessMessages.RPR_QUALITY_CHECK_SUCCESS.getMessage());
-						isTransactionSuccessful = Boolean.TRUE;
+					if (qualityScoreresponse.getResponse().getScore() < threshold) {
+						object.setIsValid(Boolean.FALSE);
+						isTransactionSuccessful = Boolean.FALSE;
 						registrationStatusDto
-								.setLatestTransactionStatusCode(RegistrationTransactionStatusCode.SUCCESS.toString());
-						registrationStatusDto.setStatusCode(RegistrationStatusCode.PROCESSING.toString());
-						registrationStatusDto.setStatusComment(StatusUtil.BIOMETRIC_QUALITY_CHECK_SUCCESS.getMessage());
-						registrationStatusDto.setSubStatusCode(StatusUtil.BIOMETRIC_QUALITY_CHECK_SUCCESS.getCode());
-						regProcLogger.info(LoggerFileConstant.SESSIONID.toString(),
-								LoggerFileConstant.REGISTRATIONID.toString(), regId, "QualityCheckerImpl::success");
+								.setLatestTransactionStatusCode(RegistrationTransactionStatusCode.FAILED.toString());
+						registrationStatusDto.setStatusCode(RegistrationStatusCode.REJECTED.toString());
+						registrationStatusDto.setStatusComment(StatusUtil.BIOMETRIC_QUALITY_CHECK_FAILED.getMessage());
+						registrationStatusDto.setSubStatusCode(StatusUtil.BIOMETRIC_QUALITY_CHECK_FAILED.getCode());
+						description.setCode(PlatformErrorMessages.BIOMETRIC_QUALITY_CHECK_FAILED.getCode());
+						description.setMessage(PlatformErrorMessages.BIOMETRIC_QUALITY_CHECK_FAILED.getMessage());
+						break;
+					} else {
+						scoreCounter++;
 					}
 				}
-
+				if (scoreCounter == birList.size()) {
+					object.setIsValid(Boolean.TRUE);
+					description.setCode(PlatformSuccessMessages.RPR_QUALITY_CHECK_SUCCESS.getCode());
+					description.setMessage(PlatformSuccessMessages.RPR_QUALITY_CHECK_SUCCESS.getMessage());
+					isTransactionSuccessful = Boolean.TRUE;
+					registrationStatusDto
+							.setLatestTransactionStatusCode(RegistrationTransactionStatusCode.SUCCESS.toString());
+					registrationStatusDto.setStatusCode(RegistrationStatusCode.PROCESSING.toString());
+					registrationStatusDto.setStatusComment(StatusUtil.BIOMETRIC_QUALITY_CHECK_SUCCESS.getMessage());
+					registrationStatusDto.setSubStatusCode(StatusUtil.BIOMETRIC_QUALITY_CHECK_SUCCESS.getCode());
+					regProcLogger.info(LoggerFileConstant.SESSIONID.toString(),
+							LoggerFileConstant.REGISTRATIONID.toString(), regId, "QualityCheckerImpl::success");
+				}
 			}
 
 		} catch (ApisResourceAccessException e) {

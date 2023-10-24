@@ -506,7 +506,6 @@ public class MessageNotificationServiceImpl
 		Map<String, String> fieldMap = packetManagerService.getFields(id, mapperJsonValues, process, ProviderStageName.MESSAGE_SENDER);
 
 		for (Map.Entry e : fieldMap.entrySet()) {
-//			System.out.println("key name "+e.getKey() +" key value "+e.getValue());
 			if (e.getValue() != null) {
 				String value = e.getValue().toString();
 				if (StringUtils.isNotEmpty(value)) {

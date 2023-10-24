@@ -104,7 +104,6 @@ public class PacketValidatorImpl implements PacketValidator {
                             id, "ERROR =======>" + PlatformErrorMessages.RPR_PVM_INVALID_UIN.getMessage());
                     throw new IdRepoAppException(PlatformErrorMessages.RPR_PVM_INVALID_UIN.getMessage());
                 }
-//                String mspResponse = restHelper.isApplicantUinDeactivated("","");
                 if(restHelper.isApplicantUinDeactivated(env.getProperty("MSPAPPLICANTUINSTATUS"),uin)) {
                     ActivateUinDto uinDto = new ActivateUinDto();
                     uinDto.setUin(uin);

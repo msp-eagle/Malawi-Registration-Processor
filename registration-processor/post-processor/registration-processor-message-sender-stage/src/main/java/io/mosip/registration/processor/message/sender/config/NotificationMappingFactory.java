@@ -1,4 +1,4 @@
-package io.mosip.registration.processor.stages.config;
+package io.mosip.registration.processor.message.sender.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.core.env.MapPropertySource;

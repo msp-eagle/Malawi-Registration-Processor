@@ -1,8 +1,14 @@
 package io.mosip.registration.processor.message.sender;
 
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 
+import io.mosip.registration.processor.message.sender.stage.MessageSenderApi;
 import io.mosip.registration.processor.message.sender.stage.MessageSenderStage;
+import org.springframework.context.annotation.ComponentScan;
+import org.springframework.context.annotation.Configuration;
 
 /**
  * The Class MessageSenderApplication.
@@ -11,6 +17,10 @@ import io.mosip.registration.processor.message.sender.stage.MessageSenderStage;
  * @since 1.0.0
  *
  */
+@Configuration
+@EnableAutoConfiguration
+@SpringBootApplication
+@ComponentScan(basePackages = { "${app.componentscan.basepackages}" })
 public class MessageSenderApplication {
 	/**
 	 * Main method to instantiate the spring boot application.
@@ -20,6 +30,9 @@ public class MessageSenderApplication {
 	 */
 	@SuppressWarnings("resource")
 	public static void main(String[] args) {
+
+
+		SpringApplication.run(MessageSenderApplication.class, args);
 
 		AnnotationConfigApplicationContext ctx = new AnnotationConfigApplicationContext();
 		ctx.scan("io.mosip.registration.processor.core.config",
@@ -36,6 +49,10 @@ public class MessageSenderApplication {
 
 		MessageSenderStage messageSenderStage = ctx.getBean(MessageSenderStage.class);
 		messageSenderStage.deployVerticle();
+
+		MessageSenderApi messageSenderApi = ctx.getBean(MessageSenderApi.class);
+		messageSenderApi.deployVerticle();
+
 
 	}
 
