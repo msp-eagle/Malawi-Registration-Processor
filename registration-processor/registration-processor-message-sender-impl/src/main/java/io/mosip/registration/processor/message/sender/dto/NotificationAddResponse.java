@@ -1,4 +1,4 @@
-package com.msp.philsys.recordhistory.Dto.notification;
+package io.mosip.registration.processor.message.sender.dto;
 
 
 import lombok.Data;

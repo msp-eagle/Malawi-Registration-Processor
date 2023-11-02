@@ -65,6 +65,9 @@ public enum ApiName {
 	/** msp record history service. */
 	PHILSYSRECORDHISTORY,
 
+	/** msp notification history service. */
+	NOTIFICATIONHISTORY,
+
 //	/** msp notification service. */
 //	MSPUINSTATUS,
 

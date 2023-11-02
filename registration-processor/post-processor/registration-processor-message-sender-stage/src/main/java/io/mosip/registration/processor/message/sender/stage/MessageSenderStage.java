@@ -1,12 +1,17 @@
 package io.mosip.registration.processor.message.sender.stage;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+import io.mosip.kernel.core.util.DateUtils;
+import io.mosip.registration.processor.core.http.RequestWrapper;
+import io.mosip.registration.processor.core.util.JsonUtil;
 import io.mosip.registration.processor.message.sender.config.NotificationMappingConfig;
 import org.json.JSONException;
 import org.json.simple.parser.ParseException;
@@ -39,7 +44,6 @@ import io.mosip.registration.processor.core.code.RegistrationTransactionTypeCode
 import io.mosip.registration.processor.core.constant.IdType;
 import io.mosip.registration.processor.core.constant.LoggerFileConstant;
 import io.mosip.registration.processor.core.exception.ApisResourceAccessException;
-import io.mosip.registration.processor.core.exception.RegistrationProcessorCheckedException;
 import io.mosip.registration.processor.core.exception.util.PlatformErrorMessages;
 import io.mosip.registration.processor.core.exception.util.PlatformSuccessMessages;
 import io.mosip.registration.processor.core.http.ResponseWrapper;
@@ -460,6 +464,7 @@ public class MessageSenderStage extends MosipVerticleAPIManager {
 
 		return isNotificationSuccess;
 	}
+
 
 	private boolean sendEmail(String id, String process, Map<String, Object> attributes, String[] ccEMailList, String regType,
 			MessageSenderDto messageSenderDto, LogDescription description) throws Exception {

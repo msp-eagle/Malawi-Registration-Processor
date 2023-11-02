@@ -1,4 +1,4 @@
-package com.msp.philsys.recordhistory.Dto.notification;
+package io.mosip.registration.processor.stages.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
