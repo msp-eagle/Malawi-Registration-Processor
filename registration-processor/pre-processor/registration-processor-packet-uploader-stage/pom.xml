@@ -119,8 +119,14 @@
 		<dependency>
 			<groupId>io.mosip.commons</groupId>
 			<artifactId>khazana</artifactId>
-			<version>${object.store.khazana.version}</version>
+			<!--			<version>${object.store.khazana.version}</version>-->
+			<version>1.1.5.3-msp-debug</version>
 		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>io.mosip.commons</groupId>-->
+<!--			<artifactId>khazana</artifactId>-->
+<!--			<version>${object.store.khazana.version}</version>-->
+<!--		</dependency>-->
 	</dependencies>
 
 	<build>

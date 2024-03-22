@@ -272,6 +272,7 @@ public class MessageSenderStage extends MosipVerticleAPIManager {
 					allowedNotificationTypes.addAll(allowedTemplateMap.get(messageSenderDto.getSmsTemplateCode().name()));
 				}
 
+				System.out.println("calling send notification");
 				boolean isNotificationSuccess = sendNotification(id, registrationStatusDto.getRegistrationType(),
 						attributes, ccEMailList, allowedNotificationTypes, regType, messageSenderDto, description);
 

@@ -153,7 +153,7 @@ public enum StatusUtil {
 	LINK_RID_FOR_LOST_PACKET_FAILED(StatusConstants.UIN_GENERATOR_MODULE_FAILED + "008","UIn not found the the matched RID"),
 	UIN_ALREADY_EXIST_IN_IDREPO(StatusConstants.UIN_GENERATOR_MODULE_FAILED + "009", "Received ID record already exists error from idrepo even after trying with force merge"),
 	OLD_APPLICATION_ID(StatusConstants.UIN_GENERATOR_MODULE_FAILED + "010","Received error as old application ID reprocessing not allowed from idrepo"),
-	
+	INVALID_INPUT_PARAMETER(StatusConstants.UIN_GENERATOR_MODULE_FAILED+"011","Received error as Invalid Input Parameter"),
 	//Request handler service
 	//1)Resident UIN update
 	RESIDENT_UPDATE_SUCCES(StatusConstants.REQUEST_HANDLER_MODULE_SUCCESS + "001" , "Resident Uin data updated sucessfully"),
@@ -216,7 +216,12 @@ public enum StatusUtil {
     MESSAGE_SENDER_SMS_SUCCESS(StatusConstants.MESSAGE_SENDER_NOTIF_SUCCESS_CODE + "004","SMS Notification was sent"),
     MESSAGE_SENDER_EMAIL_FAILED(StatusConstants.MESSAGE_SENDER__FAILED_CODE + "005","Notification was not sent as the required mode of channel was not available"),
     MESSAGE_SENDER_SMS_FAILED(StatusConstants.MESSAGE_SENDER__FAILED_CODE + "006","Notification was not sent as the required mode of channel was not available"),
-    MESSAGE_SENDER_NOTIFICATION_FAILED(StatusConstants.MESSAGE_SENDER__FAILED_CODE + "006","Notification was not sent as the required mode of channel was not available");
+    MESSAGE_SENDER_NOTIFICATION_FAILED(StatusConstants.MESSAGE_SENDER__FAILED_CODE + "006","Notification was not sent as the required mode of channel was not available"),
+
+
+	// ABIS handler stage
+	BIOMTERIC_RECORD_VALIDAITON_FAILED(StatusConstants.ABIS_HANDLER_MODULE_FAILED + "001",
+			"Biometric record validation failed");
 
 	private final String statusComment;
 	private final String statusCode;

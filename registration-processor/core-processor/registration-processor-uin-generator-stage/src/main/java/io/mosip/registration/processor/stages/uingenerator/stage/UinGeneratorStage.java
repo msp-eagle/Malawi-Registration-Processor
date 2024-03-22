@@ -107,7 +107,7 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 	private static Logger regProcLogger = RegProcessorLogger.getLogger(UinGeneratorStage.class);
 	private static final String OLD_APPLICATION_ID = "IDR-IDC-011";
 	private static final String RECORD_ALREADY_EXISTS_ERROR = "IDR-IDC-012";
-
+	private static final String INVALID_INPUT_PARAMETER_ERROR_CODE="IDR-IDC-002";
 
 	@Autowired
 	private Environment env;
@@ -153,6 +153,12 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 	
 	@Value("${mosip.regproc.uin.generator.dob.log.enable:false}")
 	private boolean dobLogEnable;
+
+	@Value("${mosip.regproc.uin.generator.idrepo-max-retry-count}")
+	Integer maxRetrycount;
+
+	@Value("${mosip.regproc.uin.generator.trim-whitespaces.simpleType-value:false}")
+	private boolean trimWhitespaces;
 
 	@Value("${mosip.kernel.vid.length:-1}")
 	private int vidLength;
@@ -235,7 +241,8 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 		regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
 				registrationId, "UinGeneratorStage::process()::entry");
 		UinGenResponseDto uinResponseDto = null;
-
+		UinUpdateResponseHandler responseHandler = null;
+		JSONObject demographicIdentity = new JSONObject();
 		regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
 				registrationId, "Started processing rid in UinGeneratorStage");
 
@@ -271,7 +278,7 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 							"UinGeneratorStage::process()::Before calling ID-repo api date of birth hash: "
 									+ getHMACHashCode(dateOfBirth));
 				}
-				JSONObject demographicIdentity = new JSONObject();
+//				JSONObject demographicIdentity = new JSONObject();
 				demographicIdentity.put(MappingJsonConstants.IDSCHEMA_VERSION, convertIdschemaToDouble ? Double.valueOf(schemaVersion) : schemaVersion);
 
 				loadDemographicIdentity(fieldMap, demographicIdentity);
@@ -295,6 +302,25 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 
 					idResponseDTO = sendIdRepoWithUin(registrationId, registrationStatusDto.getRegistrationType(), demographicIdentity,
 							uinField, description);
+
+					if (idResponseDTO.getErrors() != null && !idResponseDTO.getErrors().isEmpty() && idResponseDTO
+							.getErrors().get(0).getErrorCode().equalsIgnoreCase(INVALID_INPUT_PARAMETER_ERROR_CODE)) {
+						for (int i = 0; i < maxRetrycount; i++) {
+							// This log will remove later after testing why iteration is not happening in
+							// server before this fix
+							regProcLogger.info(LoggerFileConstant.SESSIONID.toString(),
+									LoggerFileConstant.REGISTRATIONID.toString(), registrationId,
+									idResponseDTO.toString());
+							idResponseDTO = sendIdRepoWithUin(registrationId,
+									registrationStatusDto.getRegistrationType(), demographicIdentity,
+									uinField, description);
+							if (idResponseDTO.getErrors() == null || idResponseDTO.getErrors().isEmpty()
+									|| !idResponseDTO.getErrors().get(0)
+									.getErrorCode().equalsIgnoreCase( INVALID_INPUT_PARAMETER_ERROR_CODE))
+								break;
+
+						}
+					}
 
 					boolean isUinAlreadyPresent = isUinAlreadyPresent(idResponseDTO, registrationId);
 
@@ -330,7 +356,7 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 							|| (RegistrationType.RES_UPDATE.toString()
 									.equalsIgnoreCase(object.getReg_type().toString()))) {
 
-						 UinUpdateResponseHandler responseHandler = uinUpdate(registrationId, registrationStatusDto.getRegistrationType(), uinField, object, demographicIdentity,
+						 responseHandler = uinUpdate(registrationId, registrationStatusDto.getRegistrationType(), uinField, object, demographicIdentity,
 									description);
 						isTransactionSuccessful = responseHandler.isTransactionSuccessful();
 
@@ -363,6 +389,7 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 			object.setInternalError(Boolean.TRUE);
 			object.setRid(registrationStatusDto.getRegistrationId());
 			e.printStackTrace();
+			recordHistory(registrationId,object,responseHandler.getUin(),"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
 		} catch (PacketManagerException e) {
 			regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
 					registrationId,
@@ -378,6 +405,7 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 			object.setIsValid(Boolean.FALSE);
 			object.setInternalError(Boolean.TRUE);
 			object.setRid(registrationStatusDto.getRegistrationId());
+			recordHistory(registrationId,object,responseHandler.getUin(),"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
 		} catch (ApisResourceAccessException ex) {
 			registrationStatusDto.setStatusCode(RegistrationStatusCode.PROCESSING.name());
 			registrationStatusDto.setStatusComment(trimExceptionMessage
@@ -392,7 +420,7 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 			object.setIsValid(Boolean.FALSE);
 			description.setMessage(PlatformErrorMessages.RPR_UGS_API_RESOURCE_EXCEPTION.getMessage());
 			description.setCode(PlatformErrorMessages.RPR_UGS_API_RESOURCE_EXCEPTION.getCode());
-
+			recordHistory(registrationId,object,responseHandler.getUin(),"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
 		} catch (IOException e) {
 			registrationStatusDto.setStatusCode(RegistrationStatusCode.FAILED.name());
 			registrationStatusDto.setStatusComment(
@@ -407,6 +435,7 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 			object.setIsValid(Boolean.FALSE);
 			description.setMessage(PlatformErrorMessages.RPR_SYS_IO_EXCEPTION.getMessage());
 			description.setCode(PlatformErrorMessages.RPR_SYS_IO_EXCEPTION.getCode());
+			recordHistory(registrationId,object,responseHandler.getUin(),"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
 		} catch (Exception ex) {
 			registrationStatusDto.setStatusCode(RegistrationStatusCode.FAILED.name());
 			registrationStatusDto.setStatusComment(
@@ -421,6 +450,7 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 			object.setIsValid(Boolean.FALSE);
 			description.setMessage(PlatformErrorMessages.RPR_BDD_UNKNOWN_EXCEPTION.getMessage());
 			description.setCode(PlatformErrorMessages.RPR_BDD_UNKNOWN_EXCEPTION.getCode());
+			recordHistory(registrationId,object,responseHandler.getUin(),"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
 		} finally {
 			if (description.getStatusComment() != null)
 				registrationStatusDto.setStatusComment(description.getStatusComment());
@@ -550,6 +580,9 @@ public class UinGeneratorStage extends MosipVerticleAPIManager {
 						for (int i = 0; i < jsonArray.length(); i++) {
 							Object obj = jsonArray.get(i);
 							HashMap<String, Object> hashMap = new ObjectMapper().readValue(obj.toString(), HashMap.class);
+							if(trimWhitespaces && hashMap.get("value") instanceof String) {
+								hashMap.put("value",((String)hashMap.get("value")).trim());
+							}
 							jsonList.add(hashMap);
 						}
 						demographicIdentity.putIfAbsent(e.getKey(), jsonList);
@@ -672,8 +705,15 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 				.setLatestTransactionStatusCode(RegistrationTransactionStatusCode.FAILED.toString());
 		registrationStatusDto.setSubStatusCode(StatusUtil.OLD_APPLICATION_ID.getCode());
 		description.setTransactionStatusCode(RegistrationTransactionStatusCode.FAILED.toString());
-	
-	}else {
+
+	} else if (errors!=null && errors.get(0).getErrorCode().equalsIgnoreCase(INVALID_INPUT_PARAMETER_ERROR_CODE)) {
+		registrationStatusDto.setStatusCode(RegistrationTransactionStatusCode.PROCESSING.toString());
+		registrationStatusDto.setLatestTransactionStatusCode(
+				RegistrationTransactionStatusCode.REPROCESS.toString());
+		registrationStatusDto.setStatusComment(StatusUtil.INVALID_INPUT_PARAMETER.getMessage());
+		registrationStatusDto.setSubStatusCode(StatusUtil.INVALID_INPUT_PARAMETER.getCode());
+		description.setTransactionStatusCode(RegistrationTransactionStatusCode.REPROCESS.toString());
+	} else {
 		registrationStatusDto.setStatusComment(trimExceptionMessage
 				.trimExceptionMessage(StatusUtil.UIN_GENERATION_FAILED.getMessage() + statusComment));
 		registrationStatusDto.setSubStatusCode(StatusUtil.UIN_GENERATION_FAILED.getCode());
@@ -809,7 +849,7 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 			if ((RegistrationType.ACTIVATED.toString().toUpperCase())
 					.equalsIgnoreCase(result.getResponse().getStatus())) {
 				generateVid(null, uinResponseHandler.getUin(), Boolean.FALSE);
-				recordHistory(regId,uinResponseHandler.getUin(),"Y",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_SUCCESS.getMessage());
+				recordHistory(regId,object,uinResponseHandler.getUin(),"Y",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_SUCCESS.getMessage());
 //				updateUin = null;
 
 
@@ -835,7 +875,7 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 							: UINConstants.NULL_IDREPO_RESPONSE);
 			description.setTransactionStatusCode(RegistrationTransactionStatusCode.FAILED.toString());
 			object.setIsValid(Boolean.FALSE);
-			recordHistory(regId,uinResponseHandler.getUin(),"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
+			recordHistory(regId,object,uinResponseHandler.getUin(),"N",demographicIdentity,StatusUtil.UIN_DATA_UPDATION_FAILED.getMessage());
 		}
 		uinResponseHandler.setTransactionSuccessful(isTransactionSuccessful);
 		return uinResponseHandler;
@@ -848,13 +888,19 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 		return Math.abs(number);
 	}
 
-	public  void recordHistory(String regId, String uin, String status, JSONObject demographicIdentity, String statusMessage) throws ApisResourceAccessException {
+	public  void recordHistory(String regId, MessageDTO object, String uin, String status, JSONObject demographicIdentity, String statusMessage) {
 
 		try {
 			io.mosip.registration.processor.stages.uingenerator.dto.RequestWrapper<RecordHistoryReqDTO>
 					req = new io.mosip.registration.processor.stages.uingenerator.dto.RequestWrapper<>();
 			RecordHistoryReqDTO reqDTO = new RecordHistoryReqDTO();
-			reqDTO.setAuthTypeCode("REGISTRATION_UPDATE");
+			if(RegistrationType.UPDATE.toString().equalsIgnoreCase(object.getReg_type().toString())
+			) {
+				reqDTO.setAuthTypeCode("REGISTRATION_UPDATE");
+			}else if(RegistrationType.RES_UPDATE.toString()
+					.equalsIgnoreCase(object.getReg_type().toString())){
+				reqDTO.setAuthTypeCode("RESIDENT_UPDATE");
+			}
 			reqDTO.setIndividualId(uin);
 			reqDTO.setIndividualIdType("UIN");
 			reqDTO.setTransactionID(String.valueOf(transactionId()));
@@ -864,8 +910,10 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 			reqDTO.setStatusComment(statusMessage);
 			reqDTO.setRequestDatetime(LocalDateTime.now(ZoneId.of("UTC")));
 			reqDTO.setResponseDatetime(LocalDateTime.now(ZoneId.of("UTC")));
-			reqDTO.setCreatedBy("REGISTRATION PROCESSOR");
+			reqDTO.setCreatedBy("REGISTRATION_PROCESSOR");
 			reqDTO.setRequestedEntityType("INTERNAL");
+			reqDTO.setRequestedEntityName("regproc_uin_generator");
+			reqDTO.setRequestedEntityId("regproc");
 			req.setRequest(reqDTO);
 			req.setId("record.history.create");
 			req.setRequesttime(LocalDateTime.now(ZoneId.of("UTC")));
@@ -934,12 +982,11 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 					responseHandler.setPhone(json.getJSONObject("response").getJSONObject("identity").getString("mobileno"));
 				}
 
-				System.out.println("idrepo response uin : "+uin);
-
 				demographicIdentity.put("UIN", uin);
 				responseHandler.setUin(uin);
-//				updateUin = uin;
 
+			}else{
+				responseHandler.setUin(demographicIdentity.get("UIN").toString());
 			}
 		}catch (Exception e){
 
@@ -1324,7 +1371,7 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 			request.setRequesttime(localdatetime);
 			request.setVersion(env.getProperty(UINConstants.REG_PROC_APPLICATION_VERSION));
 
-			regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
 					registrationId,
 					"UinGeneratorStage::generateVid():: post CREATEVID service call started with request data : "
 							+ JsonUtil.objectMapperObjectToJson(request));
@@ -1343,6 +1390,8 @@ private void handleIdRepoErrorResponse(IdResponseDTO idResponseDTO, InternalRegi
 					"UinGeneratorStage::generateVid():: create Vid response :: "+JsonUtil.objectMapperObjectToJson(response));
 
 			if (!response.getErrors().isEmpty()) {
+				regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
+						registrationId, "Received response from CREATEVID API : errors :  "+response.getErrors().toString());
 				throw new VidCreationException(PlatformErrorMessages.RPR_UGS_VID_EXCEPTION.getMessage(),
 						"VID creation exception");
 

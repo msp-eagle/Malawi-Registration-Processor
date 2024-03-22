@@ -478,10 +478,10 @@ public class OSIValidator {
 
 				String introducerVID = packetManagerService.getFieldByMappingJsonKey(registrationId, MappingJsonConstants
 						.PARENT_OR_GUARDIAN_VID, registrationStatusDto.getRegistrationType(), ProviderStageName.OSI_VALIDATOR);
-				String introducerUIN = packetManagerService.getFieldByMappingJsonKey(registrationId, MappingJsonConstants
-						.PARENT_OR_GUARDIAN_UIN, registrationStatusDto.getRegistrationType(), ProviderStageName.OSI_VALIDATOR);
-				String introducerRID = packetManagerService.getFieldByMappingJsonKey(registrationId, MappingJsonConstants
-						.PARENT_OR_GUARDIAN_RID, registrationStatusDto.getRegistrationType(), ProviderStageName.OSI_VALIDATOR);
+//				String introducerUIN = packetManagerService.getFieldByMappingJsonKey(registrationId, MappingJsonConstants
+//						.PARENT_OR_GUARDIAN_UIN, registrationStatusDto.getRegistrationType(), ProviderStageName.OSI_VALIDATOR);
+//				String introducerRID = packetManagerService.getFieldByMappingJsonKey(registrationId, MappingJsonConstants
+//						.PARENT_OR_GUARDIAN_RID, registrationStatusDto.getRegistrationType(), ProviderStageName.OSI_VALIDATOR);
 
 				if (isValidIntroducer(introducerVID)) {
 					registrationStatusDto.setLatestTransactionStatusCode(registrationExceptionMapperUtil

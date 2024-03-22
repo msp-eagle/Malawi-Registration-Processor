@@ -162,7 +162,7 @@ public class MessageNotificationServiceImpl
 		StringBuilder emailId = new StringBuilder();
 		StringBuilder phoneNumber = new StringBuilder();
 
-		regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), id,
+		regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), id,
 				"MessageNotificationServiceImpl::sendSmsNotification()::entry");
 		try {
 			setAttributes(id, process, idType, attributes, regType, phoneNumber, emailId);
@@ -199,6 +199,7 @@ public class MessageNotificationServiceImpl
 							+ JsonUtil.objectMapperObjectToJson(response));
 
 			String status = response.getStatus().equals("success") ? "SUCCESS":"FAILED";
+			System.out.println("calling record notification service");
 			recordNotificationHistory(id,phoneNumber.toString(),status,"SMS");
 
 		} catch (TemplateNotFoundException | TemplateProcessingFailureException | PacketManagerException | JsonProcessingException  e) {
@@ -225,10 +226,11 @@ public class MessageNotificationServiceImpl
 		ResponseWrapper<?> responseWrapper;
 		NotificationAddResponse response;
 		try {
+			System.out.println("triggering record notification history api");
 			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
 					rid, "NotificationUtility::recordNotificationHistory():: NOTIFICATIONHISTORY POST service started for type : "+type);
 
-			requestWrapper.setId(env.getProperty(SMS_SERVICE_ID));
+			requestWrapper.setId("string");
 			requestWrapper.setVersion(env.getProperty(REG_PROC_APPLICATION_VERSION));
 			DateTimeFormatter format = DateTimeFormatter.ofPattern(env.getProperty(DATETIME_PATTERN));
 			LocalDateTime localdatetime = LocalDateTime
@@ -238,8 +240,11 @@ public class MessageNotificationServiceImpl
 			req.setNotificationId(id);
 			req.setNotificationType(type);
 			req.setStatus(status);
-			req.setRequestServiceName("REGISTRATION_PROCESSOR");
+			req.setRequestServiceName("REGISTRATION_PROCESSOR_MESSAGE_SENDER_STAGE");
 			requestWrapper.setRequest(req);
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
+					rid, "NotificationUtility::recordNotificationHistory():: NOTIFICATIONHISTORY POST printitng request body : "
+							+ requestWrapper);
 			responseWrapper = (ResponseWrapper<?>) restClientService.postApi(ApiName.NOTIFICATIONHISTORY, "", "",
 					requestWrapper, ResponseWrapper.class);
 			response = mapper.readValue(mapper.writeValueAsString(responseWrapper.getResponse()), NotificationAddResponse.class);
@@ -288,6 +293,7 @@ public class MessageNotificationServiceImpl
 			response = sendEmail(mailTo, mailCc, subject, artifact, attachment);
 
 			String status = response.getStatus().equals("sucess") ? "SUCCESS":"FAILED";
+			System.out.println("calling record notification service");
 			recordNotificationHistory(id,emailId.toString(),status,"EMAIL");
 
 		} catch (TemplateNotFoundException | TemplateProcessingFailureException e) {
@@ -349,14 +355,15 @@ public class MessageNotificationServiceImpl
 		params.add("mailContent", artifact);
 
 		params.add("attachments", attachment);
-		regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
-				"MessageNotificationServiceImpl::sendEmail():: EMAILNOTIFIER POST service started");
+		System.out.println("printing mail content and details : "+artifact);
+		regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
+				"MessageNotificationServiceImpl::sendEmail():: EMAILNOTIFIER POST service started with mail content : "+artifact);
 
 		responseWrapper = (ResponseWrapper<?>) resclient.postApi(builder.build().toUriString(),
 				MediaType.MULTIPART_FORM_DATA, params, ResponseWrapper.class);
 
 		responseDto = mapper.readValue(mapper.writeValueAsString(responseWrapper.getResponse()), ResponseDto.class);
-		regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
+		regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
 				"MessageNotificationServiceImpl::sendEmail():: EMAILNOTIFIER POST service ended with in response : "
 						+ JsonUtil.objectMapperObjectToJson(responseDto));
 

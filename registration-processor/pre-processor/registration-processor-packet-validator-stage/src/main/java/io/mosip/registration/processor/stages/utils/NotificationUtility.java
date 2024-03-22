@@ -175,7 +175,7 @@ public class NotificationUtility {
 			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
 					rid, "NotificationUtility::recordNotificationHistory():: NOTIFICATIONHISTORY POST service started for type : "+type);
 
-			requestWrapper.setId(env.getProperty(SMS_SERVICE_ID));
+			requestWrapper.setId("string");
 			requestWrapper.setVersion(env.getProperty(REG_PROC_APPLICATION_VERSION));
 			DateTimeFormatter format = DateTimeFormatter.ofPattern(env.getProperty(DATETIME_PATTERN));
 			LocalDateTime localdatetime = LocalDateTime
@@ -185,8 +185,12 @@ public class NotificationUtility {
 			req.setNotificationId(id);
 			req.setNotificationType(type);
 			req.setStatus(status);
-			req.setRequestServiceName("REGISTRATION_PROCESSOR");
+			req.setRequestServiceName("REGISTRATION_PROCESSOR_PACKET_VALIDATOR_STAGE");
 			requestWrapper.setRequest(req);
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
+					rid, "NotificationUtility::recordNotificationHistory():: NOTIFICATIONHISTORY printing request body : "
+							+ requestWrapper);
+
 			responseWrapper = (ResponseWrapper<?>) restClientService.postApi(ApiName.NOTIFICATIONHISTORY, "", "",
 					requestWrapper, ResponseWrapper.class);
 			response = mapper.readValue(mapper.writeValueAsString(responseWrapper.getResponse()), NotificationAddResponse.class);
