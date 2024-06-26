@@ -84,6 +84,9 @@ public class ReprocessorStage extends MosipVerticleAPIManager {
 	@Value("#{T(java.util.Arrays).asList('${mosip.registration.processor.reprocessor.exclude-stage-names:PacketReceiverStage}')}")
 	private List<String> reprocessExcludeStageNames;
 
+	@Value("${registration.processor.reprocess.after.date}")
+	private String processTime;
+
 	/** The is transaction successful. */
 	boolean isTransactionSuccessful;
 
@@ -230,7 +233,7 @@ public class ReprocessorStage extends MosipVerticleAPIManager {
 		String registrationId = null;
 		try {
 			dtolist = registrationStatusService.getUnProcessedPackets(fetchSize, elapseTime, reprocessCount,
-					statusList, reprocessExcludeStageNames);
+					statusList, reprocessExcludeStageNames,processTime);
 
 			if (!CollectionUtils.isEmpty(dtolist)) {
 				regProcLogger.info("======================>" + "Total packets count = " + dtolist.size(), "", "", "");

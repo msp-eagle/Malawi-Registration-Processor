@@ -86,7 +86,7 @@ public class RegistrationStatusDaoTest {
 		Mockito.when(registrationStatusRepositary.createQuerySelect(Matchers.anyString(), Matchers.anyMap(),
 				Matchers.anyInt())).thenReturn(list);
 		List<RegistrationStatusEntity> rEntityList = registrationStatusDao.getUnProcessedPackets(2, 60000, 4,
-				statusList, excludeStageNames);
+				statusList, excludeStageNames,null);
 		assertEquals(list, rEntityList);
 	}
 

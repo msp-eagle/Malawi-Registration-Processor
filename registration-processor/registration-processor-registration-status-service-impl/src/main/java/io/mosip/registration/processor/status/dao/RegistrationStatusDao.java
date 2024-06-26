@@ -1,6 +1,7 @@
 package io.mosip.registration.processor.status.dao;
 
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -160,6 +161,11 @@ public class RegistrationStatusDao {
 		return registrationStatusRepositary.createQuerySelect(queryStr, params);
 	}
 
+	public LocalDateTime getLocaldatetime(String processTime){
+		DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+		 return LocalDateTime.parse(processTime, formatter);
+	}
+
 	/**
 	 * Gets the un processed packets.
 	 *
@@ -174,12 +180,13 @@ public class RegistrationStatusDao {
 	 * @return the un processed packets
 	 */
 	public List<RegistrationStatusEntity> getUnProcessedPackets(Integer fetchSize, long elapseTime,
-			Integer reprocessCount, List<String> status, List<String> excludeStageNames) {
+			Integer reprocessCount, List<String> status, List<String> excludeStageNames, String processTime) {
 
 		Map<String, Object> params = new HashMap<>();
 		String className = RegistrationStatusEntity.class.getSimpleName();
 		String alias = RegistrationStatusEntity.class.getName().toLowerCase().substring(0, 1);
 		LocalDateTime timeDifference = DateUtils.getUTCCurrentDateTime().minusSeconds(elapseTime);
+		LocalDateTime processDateTime = getLocaldatetime(processTime);
 		List<String> latestTrnTypeCode = new ArrayList<>();
 		latestTrnTypeCode.add("MANUAL_VERIFICATION");
 		String queryStr=null;
@@ -188,6 +195,7 @@ public class RegistrationStatusDao {
 			queryStr = SELECT + alias + FROM + className + EMPTY_STRING + alias + WHERE + EMPTY_STRING + alias
 					+ ".latestTransactionTimes<" + ":timeDifference " + AND + EMPTY_STRING + alias
 					+ ".latestTransactionStatusCode IN :status " + AND + EMPTY_STRING + alias
+					+ ".createDateTime > :processTime " + AND + EMPTY_STRING + alias
 					+ ".registrationStageName NOT IN :excludeStageNames " + AND + EMPTY_STRING + alias
 					+ ".latestTransactionTypeCode NOT IN :latestTrnTypeCode " + AND + EMPTY_STRING + alias
 					+ ".regProcessRetryCount<=" + ":reprocessCount order by " + alias + ".updateDateTime asc";
@@ -197,9 +205,11 @@ public class RegistrationStatusDao {
 			params.put("reprocessCount", reprocessCount);
 			params.put("timeDifference", timeDifference);
 			params.put("latestTrnTypeCode", latestTrnTypeCode);
+			params.put("processTime",processDateTime);
 		}else {
 			queryStr = SELECT + alias + FROM + className + EMPTY_STRING + alias + WHERE + EMPTY_STRING + alias
 					+ ".latestTransactionTimes<" + ":timeDifference " + AND + EMPTY_STRING + alias
+					+ ".createDateTime > :processTime " + AND + EMPTY_STRING + alias
 					+ ".latestTransactionStatusCode IN :status " + AND + EMPTY_STRING + alias
 					+ ".registrationStageName NOT IN :excludeStageNames " + AND + EMPTY_STRING + alias
 					+ ".regProcessRetryCount<=" + ":reprocessCount order by " + alias + ".updateDateTime asc";
@@ -208,6 +218,7 @@ public class RegistrationStatusDao {
 			params.put("excludeStageNames", excludeStageNames);
 			params.put("reprocessCount", reprocessCount);
 			params.put("timeDifference", timeDifference);
+			params.put("processTime",processDateTime);
 		}
 
 
