@@ -3,9 +3,12 @@ package io.mosip.registration.processor.print.stage;
 import java.io.File;
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import org.apache.commons.lang.RandomStringUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
@@ -198,7 +201,7 @@ public class PrintingStage extends MosipVerticleAPIManager {
 			}
 			else {
 			String vid = getVid(uin);
-			CredentialRequestDto credentialRequestDto = getCredentialRequestDto(vid);
+			CredentialRequestDto credentialRequestDto = getCredentialRequestDto(vid,regId,registrationStatusDto.getRegistrationType(),registrationStatusDto.getCreateDateTime());
 			requestWrapper.setId(env.getProperty("mosip.registration.processor.credential.request.service.id"));
 			requestWrapper.setRequest(credentialRequestDto);
 			DateTimeFormatter format = DateTimeFormatter.ofPattern(env.getProperty(DATETIME_PATTERN));
@@ -316,13 +319,20 @@ public class PrintingStage extends MosipVerticleAPIManager {
 		return object;
 	}
 
-	private CredentialRequestDto getCredentialRequestDto(String regId) {
+	private CredentialRequestDto getCredentialRequestDto(String vid,String regId, String regType,LocalDateTime regDate) {
 		CredentialRequestDto credentialRequestDto = new CredentialRequestDto();
+		Map<String,Object> additionalData = new HashMap<>();
 
+		additionalData.put("registrationId",regId);
+		additionalData.put("centerId", regId.substring(0,5));
+		additionalData.put("creationDate",regDate.toString());
 		credentialRequestDto.setCredentialType(env.getProperty("mosip.registration.processor.credentialtype"));
 		credentialRequestDto.setEncrypt(encrypt);
 
-		credentialRequestDto.setId(regId);
+		credentialRequestDto.setId(vid);
+
+		credentialRequestDto.setRegType(regType);
+		credentialRequestDto.setAdditionalData(additionalData);
 
 		credentialRequestDto.setIssuer(env.getProperty("mosip.registration.processor.issuer"));
 

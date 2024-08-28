@@ -159,7 +159,7 @@ public class RegistrationStatusServiceImpl
 	@Override
 	public void updateRegistrationStatus(InternalRegistrationStatusDto registrationStatusDto, String moduleId,
 			String moduleName) {
-		regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
+		regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
 				registrationStatusDto.getRegistrationId(),
 				"RegistrationStatusServiceImpl::updateRegistrationStatus()::entry");
 		boolean isTransactionSuccessful = false;
@@ -193,6 +193,7 @@ public class RegistrationStatusServiceImpl
 			description.setMessage("DataAccessLayerException while Updating registration status for registration Id"
 					+ registrationStatusDto.getRegistrationId() + "::" + e.getMessage());
 
+			e.printStackTrace();
 			regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
 					registrationStatusDto.getRegistrationId(), e.getMessage() + ExceptionUtils.getStackTrace(e));
 			throw new TablenotAccessibleException(

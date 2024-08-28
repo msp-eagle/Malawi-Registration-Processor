@@ -465,7 +465,7 @@ public class PacketReceiverServiceImpl implements PacketReceiverService<File, Me
 		String fileOriginalName = file.getName();
 		registrationId = fileOriginalName.split("\\.")[0];
 		InternalRegistrationStatusDto dto = registrationStatusService.getRegistrationStatus(registrationId);
-		regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
+		regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
 				registrationId, "PacketReceiverServiceImpl::processPacket()::entry");
 		messageDTO.setRid(registrationId);
 		regEntity = syncRegistrationService.findByRegistrationId(registrationId);
@@ -474,12 +474,14 @@ public class PacketReceiverServiceImpl implements PacketReceiverService<File, Me
 			final byte[] encryptedByteArray = IOUtils.toByteArray(encryptedInputStream);
 			scanningFlag = scanFile(encryptedByteArray, registrationExceptionMapperUtil,
 					registrationId, dto, description);
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
+					registrationId, "PacketReceiverServiceImpl::processPacket()::scanningFlag : "+scanningFlag);
 			if (scanningFlag) {
 				fileManager.put(registrationId, new ByteArrayInputStream(encryptedByteArray),
-						DirectoryPathDto.LANDING_ZONE);
-				dto.setStatusCode(RegistrationStatusCode.PROCESSING.toString());
+						DirectoryPathDto.RESIDENT_PRINT_LANDING_ZONE);
+				dto.setStatusCode(RegistrationStatusCode.PROCESSED.toString());
 				dto.setStatusComment(StatusUtil.PACKET_UPLOADED_TO_LANDING_ZONE.getMessage());
-				dto.setSubStatusCode(StatusUtil.PACKET_UPLOADED_TO_LANDING_ZONE.getCode());
+				dto.setSubStatusCode("RPR-PKR-SUCCESS-002");
 				dto.setLatestTransactionStatusCode(RegistrationTransactionStatusCode.SUCCESS.toString());
 				messageDTO.setIsValid(Boolean.TRUE);
 				isTransactionSuccessful = true;
@@ -499,7 +501,7 @@ public class PacketReceiverServiceImpl implements PacketReceiverService<File, Me
 			dto.setStatusCode(RegistrationStatusCode.FAILED.toString());
 			dto.setStatusComment(trimExpMessage.trimExceptionMessage(
 					StatusUtil.IO_EXCEPTION.getMessage() + e.getMessage()));
-			dto.setSubStatusCode(StatusUtil.IO_EXCEPTION.getCode());
+			dto.setSubStatusCode("RPR-SYS-EXCEPTION-001");
 			dto.setLatestTransactionStatusCode(registrationExceptionMapperUtil
 					.getStatusCode(RegistrationExceptionTypeCode.IOEXCEPTION));
 			regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
@@ -512,7 +514,7 @@ public class PacketReceiverServiceImpl implements PacketReceiverService<File, Me
 			dto.setStatusCode(RegistrationStatusCode.PROCESSING.toString());
 			dto.setStatusComment(trimExpMessage.trimExceptionMessage(
 					StatusUtil.DB_NOT_ACCESSIBLE.getMessage() + e.getMessage()));
-			dto.setSubStatusCode(StatusUtil.DB_NOT_ACCESSIBLE.getCode());
+			dto.setSubStatusCode("RPR-SYS-EXCEPTION-001");
 			dto.setLatestTransactionStatusCode(registrationExceptionMapperUtil
 					.getStatusCode(RegistrationExceptionTypeCode.DATA_ACCESS_EXCEPTION));
 			regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
@@ -525,6 +527,9 @@ public class PacketReceiverServiceImpl implements PacketReceiverService<File, Me
 			String moduleId = isTransactionSuccessful ? PlatformSuccessMessages.RPR_PKR_PACKET_RECEIVER.getCode()
 					: description.getCode();
 			String moduleName = ModuleName.PACKET_RECEIVER.toString();
+			if(dto.getSubStatusCode()==null) {
+				dto.setSubStatusCode("RPR-SYS-finally-001");
+			}
 			registrationStatusService.updateRegistrationStatus(dto, moduleId, moduleName);
 			String eventId = "";
 			String eventName = "";

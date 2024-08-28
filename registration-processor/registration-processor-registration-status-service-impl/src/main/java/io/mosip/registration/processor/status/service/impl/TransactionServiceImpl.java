@@ -56,15 +56,16 @@ public class TransactionServiceImpl implements TransactionService<TransactionDto
 	@Override
 	public TransactionEntity addRegistrationTransaction(TransactionDto transactionStatusDto) {
 		try {
-			regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
 					transactionStatusDto.getRegistrationId(),
 					"TransactionServiceImpl::addRegistrationTransaction()::entry");
 			TransactionEntity entity = convertDtoToEntity(transactionStatusDto);
-			regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
 					transactionStatusDto.getRegistrationId(),
 					"TransactionServiceImpl::addRegistrationTransaction()::exit");
 			return transactionRepositary.save(entity);
 		} catch (DataAccessLayerException e) {
+			e.printStackTrace();
 			throw new TransactionTableNotAccessibleException(
 					PlatformErrorMessages.RPR_RGS_TRANSACTION_TABLE_NOT_ACCESSIBLE.getMessage(), e);
 		}
