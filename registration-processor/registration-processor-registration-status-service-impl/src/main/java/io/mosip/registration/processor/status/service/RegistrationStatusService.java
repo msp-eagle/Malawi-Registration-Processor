@@ -1,5 +1,6 @@
 package io.mosip.registration.processor.status.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.stereotype.Service;
@@ -92,7 +93,7 @@ public interface RegistrationStatusService<T, U, D> {
 	 * @return the un processed packets
 	 */
 	public List<U> getUnProcessedPackets(Integer fetchSize, long elapseTime, Integer reprocessCount,
-			List<String> status, List<String> excludeStageNames);
+										 List<String> status, List<String> excludeStageNames, String processTime);
 
 	/**
 	 * Gets the un processed packets count.

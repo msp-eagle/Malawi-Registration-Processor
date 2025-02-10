@@ -19,6 +19,7 @@ public class CredentialRequestDto {
 	private boolean encrypt;
 	
 	private String issuer;
+	private String regType;
 
 	private String encryptionKey;
 	

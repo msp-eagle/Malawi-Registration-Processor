@@ -47,7 +47,6 @@ public class RegistrationStatusEntity extends BaseRegistrationEntity {
 
 	/** The create date time. */
 	@Column(name = "cr_dtimes", updatable = false)
-
 	private LocalDateTime createDateTime;
 
 	/** The updated by. */

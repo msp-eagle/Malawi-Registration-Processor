@@ -321,6 +321,7 @@ public class BiometricAuthenticationStage extends MosipVerticleAPIManager {
 				} else
 					description = BiometricAuthenticationConstants.CHILD_PACKET_DESCRIPTION + registrationId;
 			}
+			//send to mvs queue
 			if (isTransactionSuccessful && demoOnlyUpdate && demoUpdateService.isupdatevalid(object.getRid(),process)) {
 				demoUpdateService.pushRequestToQueue(object.getRid(),queue);
 				object.setIsValid(Boolean.FALSE);
@@ -332,7 +333,7 @@ public class BiometricAuthenticationStage extends MosipVerticleAPIManager {
 				registrationStatusDto.setStatusComment(StatusUtil.RPR_MANUAL_VERIFICATION_SENT_TO_QUEUE.getMessage());
 				registrationStatusDto.setLatestTransactionTypeCode(RegistrationTransactionTypeCode.BIOMETRIC_AUTHENTICATION.toString());
 			} else if (isTransactionSuccessful) {
-				object.setIsValid(Boolean.FALSE);
+				object.setIsValid(Boolean.TRUE);
 				object.setInternalError(Boolean.FALSE);
 				registrationStatusDto.setStatusCode(RegistrationStatusCode.PROCESSING.name());
 				registrationStatusDto

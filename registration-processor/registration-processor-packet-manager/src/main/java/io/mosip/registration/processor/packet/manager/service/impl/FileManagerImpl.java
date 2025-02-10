@@ -86,14 +86,23 @@ public class FileManagerImpl implements FileManager<DirectoryPathDto, InputStrea
 	 */
 	@Override
 	public void put(String fileName, InputStream file, DirectoryPathDto workingDirectory) throws IOException {
-		regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
-				"FileManagerImpl::put()::entry");
-
-		String filepath = env.getProperty(workingDirectory.toString());
-		File destinationDirectory = FileUtils.getFile(filepath, getFileName(fileName));
-		FileUtils.copyToFile(file, destinationDirectory);
-		regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
-				"FileManagerImpl::put()::exit");
+		try {
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
+					"FileManagerImpl::put()::entry");
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
+					"FileManagerImpl::put()::entry : " + workingDirectory.toString());
+			String filepath = env.getProperty(workingDirectory.toString());
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
+					"FileManagerImpl::put()::filepath : " + filepath);
+			File destinationDirectory = FileUtils.getFile(filepath, getFileName(fileName));
+			FileUtils.copyToFile(file, destinationDirectory);
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
+					"FileManagerImpl::put()::exit");
+		}catch (Exception e){
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(), "",
+					"FileManagerImpl::put()::Exception : "+ExceptionUtils.getStackTrace(e));
+			throw  new IOException(e);
+		}
 	}
 
 	/*

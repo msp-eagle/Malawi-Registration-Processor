@@ -1250,6 +1250,20 @@ public enum PlatformErrorMessages {
 	RPR_ERROR_IN_ABIS_HANDLER_IDENTIFY_REQUEST(PlatformConstants.RPR_ABIS_HANDLER + "004",
 			"Internal Error occured in Abis Handler identify request"),
 
+	RPR_ABIS_HANDLER_STAGE_FAILED(PlatformConstants.RPR_ABIS_HANDLER + "005", "ABIS Handler Stage failed"),
+
+	RPR_BIOMETRIC_RECORD_VALIDATION_FAILED(PlatformConstants.RPR_ABIS_HANDLER + "006",
+			"Biometric record validation error"),
+
+	RPR_DATASHARE_MODALITIES_EMPTY(PlatformConstants.RPR_ABIS_HANDLER + "007",
+			"Data Share Policy Modalities were Empty"),
+
+	RPR_NO_BIOMETRICS_FOUND_WITH_DATASHARE(PlatformConstants.RPR_ABIS_HANDLER + "008",
+			"No Biometrics Found with Data Share Policy"),
+
+	RPR_NO_BIOMETRIC_MATCH_WTIH_DATASAHRE(PlatformConstants.RPR_ABIS_HANDLER + "009",
+			"No Biometric Matched with Data Share Policy"),
+
 	/** The rpr demo sending for manual. */
 	RPR_DEMO_SENDING_FOR_MANUAL(PlatformConstants.RPR_DEMO_DEDUPE_MODULE + "001",
 			"ABIS response Details found. Hence sending to manual adjudication"),
@@ -1264,7 +1278,20 @@ public enum PlatformErrorMessages {
 
 	/** The queue json validation failed. */
 	QUEUE_JSON_VALIDATION_FAILED(PlatformConstants.RPR_MA_MIDDLEWARE + "004",
-			"Unable to find Connection Properties");
+			"Unable to find Connection Properties"),
+	
+	RPR_MAS_MISSING_INPUT_PARAMETER(PlatformConstants.RPR_MESSAGE_SENDER_API + "001",
+			"Missing Input Parameter - %s"),
+
+	/** The invalid input parameter. */
+	RPR_MAS_INVALID_INPUT_PARAMETER(PlatformConstants.RPR_MESSAGE_SENDER_API + "002",
+			"Invalid Input Parameter - %s"),
+	RPR_MAS_RID_NOT_FOUND(PlatformConstants.RPR_MESSAGE_SENDER_API + "003",
+			"Rid not found in registration table"),
+	RPR_MAS_UNKNOWN_EXCEPTION(PlatformConstants.RPR_MESSAGE_SENDER_API + "004",
+			"Unknown exception occured"),
+	RPR_MAS_REGTYPE_NOT_MATCHING(PlatformConstants.RPR_MESSAGE_SENDER_API + "003",
+			"Registration type not matching");
 
 	/** The error message. */
 	private final String errorMessage; 

@@ -9,9 +9,9 @@
 	<parent>
 		<groupId>io.mosip.registrationprocessor</groupId>
 		<artifactId>pre-processor</artifactId>
-		<version>1.1.5.5-P3</version>
+		<version>1.1.5.5-P5</version>
 	</parent>
-	<version>1.1.5.5-P3</version>
+	<version>1.1.5.5-P5</version>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 	</properties>
@@ -119,8 +119,14 @@
 		<dependency>
 			<groupId>io.mosip.commons</groupId>
 			<artifactId>khazana</artifactId>
-			<version>${object.store.khazana.version}</version>
+			<!--			<version>${object.store.khazana.version}</version>-->
+			<version>1.1.5.3-msp-debug</version>
 		</dependency>
+<!--		<dependency>-->
+<!--			<groupId>io.mosip.commons</groupId>-->
+<!--			<artifactId>khazana</artifactId>-->
+<!--			<version>${object.store.khazana.version}</version>-->
+<!--		</dependency>-->
 	</dependencies>
 
 	<build>

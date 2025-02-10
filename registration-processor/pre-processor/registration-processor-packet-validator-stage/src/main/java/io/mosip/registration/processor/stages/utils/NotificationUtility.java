@@ -5,13 +5,19 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
+import io.mosip.registration.processor.stages.config.NotificationMappingConfig;
+import io.mosip.registration.processor.stages.dto.NotificationAddReq;
+import io.mosip.registration.processor.stages.dto.NotificationAddResponse;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.exception.ExceptionUtils;
 import org.json.JSONException;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.env.Environment;
 import org.springframework.http.MediaType;
@@ -92,6 +98,10 @@ public class NotificationUtility {
 	@Autowired
 	private TemplateGenerator templateGenerator;
 
+	@Qualifier("notificationMappingConfig")
+	@Autowired
+	NotificationMappingConfig mappingConfig;
+
 	/** The resclient. */
 	@Autowired
 	private RestApiClient resclient;
@@ -129,8 +139,19 @@ public class NotificationUtility {
 			setTemplateAndSubject(type, regType, messageSenderDTO);
 		}
 
-		if (allNotificationTypes != null) {
-			for (String notificationType : allNotificationTypes) {
+		Map<String, List<String>> allowedTemplateMap = mappingConfig.getNotification();
+
+		List<String> allowedNotificationTypes = new ArrayList<>();
+		if(allowedTemplateMap.containsKey(messageSenderDTO.getEmailTemplateCode().name())){
+			allowedNotificationTypes.addAll(allowedTemplateMap.get(messageSenderDTO.getEmailTemplateCode().name()));
+
+		}
+		if(allowedTemplateMap.containsKey(messageSenderDTO.getSmsTemplateCode().name())){
+			allowedNotificationTypes.addAll(allowedTemplateMap.get(messageSenderDTO.getSmsTemplateCode().name()));
+		}
+
+		if (allowedNotificationTypes != null) {
+			for (String notificationType : allowedNotificationTypes) {
 				if (notificationType.equalsIgnoreCase("EMAIL")
 						&& (registrationAdditionalInfoDTO.getEmail() != null
 						&& !registrationAdditionalInfoDTO.getEmail().isEmpty())) {
@@ -144,6 +165,44 @@ public class NotificationUtility {
 		}
 	}
 
+
+	private void recordNotificationHistory(String rid,String id,String status,String type){
+
+		RequestWrapper<NotificationAddReq> requestWrapper = new RequestWrapper<>();
+		ResponseWrapper<?> responseWrapper;
+		NotificationAddResponse response;
+		try {
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
+					rid, "NotificationUtility::recordNotificationHistory():: NOTIFICATIONHISTORY POST service started for type : "+type);
+
+			requestWrapper.setId("string");
+			requestWrapper.setVersion(env.getProperty(REG_PROC_APPLICATION_VERSION));
+			DateTimeFormatter format = DateTimeFormatter.ofPattern(env.getProperty(DATETIME_PATTERN));
+			LocalDateTime localdatetime = LocalDateTime
+					.parse(DateUtils.getUTCCurrentDateTimeString(env.getProperty(DATETIME_PATTERN)), format);
+			requestWrapper.setRequesttime(localdatetime);
+			NotificationAddReq req = new NotificationAddReq();
+			req.setNotificationId(id);
+			req.setNotificationType(type);
+			req.setStatus(status);
+			req.setRequestServiceName("REGISTRATION_PROCESSOR_PACKET_VALIDATOR_STAGE");
+			requestWrapper.setRequest(req);
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
+					rid, "NotificationUtility::recordNotificationHistory():: NOTIFICATIONHISTORY printing request body : "
+							+ requestWrapper);
+
+			responseWrapper = (ResponseWrapper<?>) restClientService.postApi(ApiName.NOTIFICATIONHISTORY, "", "",
+					requestWrapper, ResponseWrapper.class);
+			response = mapper.readValue(mapper.writeValueAsString(responseWrapper.getResponse()), NotificationAddResponse.class);
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.USERID.toString(),
+					rid, "NotificationUtility::recordNotificationHistory():: NOTIFICATIONHISTORY POST service ended with response : "
+							+ JsonUtil.objectMapperObjectToJson(response));
+		}catch (Exception e){
+			e.printStackTrace();
+		}
+
+	}
+
 	private void sendSMSNotification(String registrationId, RegistrationAdditionalInfoDTO registrationAdditionalInfoDTO,
 			MessageSenderDTO messageSenderDTO, Map<String, Object> attributes, LogDescription description) {
 		try {
@@ -151,12 +210,14 @@ public class NotificationUtility {
 					messageSenderDTO.getSmsTemplateCode().name(), attributes);
 
 			if (smsResponse.getStatus().equals("success")) {
+				recordNotificationHistory(registrationId,registrationAdditionalInfoDTO.getPhone(),"SUCCESS","SMS");
 				description.setCode(PlatformSuccessMessages.RPR_MESSAGE_SENDER_STAGE_SUCCESS.getCode());
 				description.setMessage(StatusUtil.MESSAGE_SENDER_SMS_SUCCESS.getMessage());
 				regProcLogger.info(LoggerFileConstant.SESSIONID.toString(),
 						LoggerFileConstant.REGISTRATIONID.toString(), registrationId,
 						description.getCode() + description.getMessage());
 			} else {
+				recordNotificationHistory(registrationId,registrationAdditionalInfoDTO.getPhone(),"FAILED","SMS");
 				description.setCode(PlatformErrorMessages.RPR_MESSAGE_SENDER_SMS_FAILED.getCode());
 				description.setMessage(StatusUtil.MESSAGE_SENDER_SMS_FAILED.getMessage());
 				regProcLogger.info(LoggerFileConstant.SESSIONID.toString(),
@@ -164,6 +225,7 @@ public class NotificationUtility {
 						description.getCode() + description.getMessage());
 			}
 		} catch (IOException | JSONException | ApisResourceAccessException e) {
+			recordNotificationHistory(registrationId,registrationAdditionalInfoDTO.getPhone(),"FAILED","SMS");
 			description.setCode(PlatformErrorMessages.RPR_MESSAGE_SENDER_SMS_FAILED.getCode());
 			description.setMessage(StatusUtil.MESSAGE_SENDER_SMS_FAILED.getMessage());
 			regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), description.getCode(), registrationId,
@@ -232,19 +294,22 @@ public class NotificationUtility {
 			ResponseDto emailResponse = sendEmail(registrationId, registrationAdditionalInfoDTO,
 					messageSenderDTO.getEmailTemplateCode().name(), subjectTemplateCode, attributes);
 			if (emailResponse.getStatus().equals("success")) {
+				recordNotificationHistory(registrationId,registrationAdditionalInfoDTO.getEmail(),"SUCCESS","EMAIL");
 				description.setCode(PlatformSuccessMessages.RPR_MESSAGE_SENDER_STAGE_SUCCESS.getCode());
 				description.setMessage(StatusUtil.MESSAGE_SENDER_EMAIL_SUCCESS.getMessage());
 				regProcLogger.info(LoggerFileConstant.SESSIONID.toString(),
 						LoggerFileConstant.REGISTRATIONID.toString(), registrationId,
 						description.getCode() + description.getMessage());
 			} else {
+				recordNotificationHistory(registrationId,registrationAdditionalInfoDTO.getEmail(),"FAILED","EMAIL");
 				description.setCode(PlatformErrorMessages.RPR_MESSAGE_SENDER_EMAIL_FAILED.getCode());
 				description.setMessage(StatusUtil.MESSAGE_SENDER_EMAIL_FAILED.getMessage());
 				regProcLogger.info(LoggerFileConstant.SESSIONID.toString(),
 						LoggerFileConstant.REGISTRATIONID.toString(), registrationId,
 						description.getCode() + description.getMessage());
 			}
-		} catch (Exception e) {
+		} catch (Exception e) {recordNotificationHistory(registrationId,registrationAdditionalInfoDTO.getEmail(),"FAILED","EMAIL");
+
 			description.setCode(PlatformErrorMessages.RPR_MESSAGE_SENDER_EMAIL_FAILED.getCode());
 			description.setMessage(PlatformErrorMessages.RPR_MESSAGE_SENDER_EMAIL_FAILED.getMessage());
 			regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), description.getCode(), registrationId,

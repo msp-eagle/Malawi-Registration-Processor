@@ -498,23 +498,32 @@ public class PacketUploaderServiceImpl implements PacketUploaderService<MessageD
         try {
             for (Map.Entry<String, InputStream> entry : sourcePackets.entrySet()) {
                 if (entry.getKey().endsWith(ZIP)) {
-                    boolean result = objectStoreAdapter.putObject(packetManagerAccount, registrationId,
-                            null, null, entry.getKey().replace(ZIP, ""), entry.getValue());
-                    if (!result)
-                        throw new ObjectStoreNotAccessibleException("Failed to store packet : " + entry.getKey());
+                    for (Map.Entry<String, InputStream> json : sourcePackets.entrySet()) {
+                        if (json.getKey().endsWith(JSON) && entry.getKey().replace(ZIP, "").equals(json.getKey().replace(JSON, ""))) {
+                            byte[] bytearray = IOUtils.toByteArray(json.getValue());
+                            String jsonString = new String(bytearray);
+                            LinkedHashMap<String, Object> currentIdMap = (LinkedHashMap<String, Object>) mapper.readValue(jsonString, LinkedHashMap.class);
+                            boolean result = objectStoreAdapter.putObject(packetManagerAccount, registrationId,
+                                    null, null, entry.getKey().replace(ZIP, ""), entry.getValue(),currentIdMap);
+                            if (!result)
+                                throw new ObjectStoreNotAccessibleException("Failed to store packet : " + entry.getKey());
+                        }
+                    }
                 }
             }
-
-            // upload metadata
-            for (Map.Entry<String, InputStream> entry : sourcePackets.entrySet()) {
-                if (entry.getKey().endsWith(JSON)) {
-                    byte[] bytearray = IOUtils.toByteArray(entry.getValue());
-                    String jsonString = new String(bytearray);
-                    LinkedHashMap<String, Object> currentIdMap = (LinkedHashMap<String, Object>) mapper.readValue(jsonString, LinkedHashMap.class);
-                    objectStoreAdapter.addObjectMetaData(packetManagerAccount, registrationId,
-                            null, null, entry.getKey().replace(JSON, ""), currentIdMap);
-                }
-            }
+//            regProcLogger.info("Waiting For Time delay to complete "+timeDelay+" MILLISECONDS");
+//            TimeUnit.MILLISECONDS.sleep(timeDelay);
+//            regProcLogger.info(" Time delay Ended");
+//            // upload metadata
+//            for (Map.Entry<String, InputStream> entry : sourcePackets.entrySet()) {
+//                if (entry.getKey().endsWith(JSON)) {
+//                    byte[] bytearray = IOUtils.toByteArray(entry.getValue());
+//                    String jsonString = new String(bytearray);
+//                    LinkedHashMap<String, Object> currentIdMap = (LinkedHashMap<String, Object>) mapper.readValue(jsonString, LinkedHashMap.class);
+//                    objectStoreAdapter.addObjectMetaData(packetManagerAccount, registrationId,
+//                            null, null, entry.getKey().replace(JSON, ""), currentIdMap);
+//                }
+//            }
         } catch (Exception e) {
             object.setIsValid(false);
             object.setInternalError(true);

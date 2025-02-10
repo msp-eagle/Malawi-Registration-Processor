@@ -7,10 +7,10 @@
 	<parent>
 		<groupId>io.mosip.registrationprocessor</groupId>
 		<artifactId>pre-processor</artifactId>
-		<version>1.1.5.5-P4-SNAPSHOT</version>
+		<version>1.1.5.5-P5</version>
 	</parent>
 	<artifactId>registration-processor-packet-validator-stage</artifactId>
-	 	<version>1.1.5.5-P4-SNAPSHOT</version>
+	 	<version>1.1.5.5-P5</version>
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
@@ -112,7 +112,7 @@
 		<dependency>
 			<groupId>io.mosip.registrationprocessor</groupId>
 			<artifactId>registration-processor-packet-classifier-stage</artifactId>
-			<version>1.1.5.5</version>
+			<version>1.1.5.5-P5</version>
 		</dependency>
 	</dependencies>
 	<build>
@@ -123,7 +123,6 @@
 				<version>${spring.boot.version}</version>
 				<configuration>
 					<executable>true</executable>
-					<layout>ZIP</layout>
 				</configuration>
 				<executions>
 					<execution>

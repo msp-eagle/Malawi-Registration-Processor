@@ -99,12 +99,13 @@ public class PacketValidatorImpl implements PacketValidator {
             if (process.equalsIgnoreCase(RegistrationType.UPDATE.toString())
                     || process.equalsIgnoreCase(RegistrationType.RES_UPDATE.toString())) {
                 uin = utility.getUIn(id, process, ProviderStageName.PACKET_VALIDATOR);
+                //msp-notification
                 if (uin == null) {
                     regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
                             id, "ERROR =======>" + PlatformErrorMessages.RPR_PVM_INVALID_UIN.getMessage());
                     throw new IdRepoAppException(PlatformErrorMessages.RPR_PVM_INVALID_UIN.getMessage());
                 }
-//                String mspResponse = restHelper.isApplicantUinDeactivated("","");
+                //commented 0 to4 uin activation check
                 if(restHelper.isApplicantUinDeactivated(env.getProperty("MSPAPPLICANTUINSTATUS"),uin)) {
                     ActivateUinDto uinDto = new ActivateUinDto();
                     uinDto.setUin(uin);

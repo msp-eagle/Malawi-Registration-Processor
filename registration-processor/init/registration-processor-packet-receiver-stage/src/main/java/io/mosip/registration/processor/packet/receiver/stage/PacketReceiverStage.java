@@ -125,7 +125,7 @@ public class PacketReceiverStage extends MosipVerticleAPIManager {
 	 */
 	private void routes(MosipRouter router) {
 
-		router.post(contextPath + "/registrationpackets");
+		router.post(contextPath + "/residentpackets");
 		router.handler(this::processURL, this::processPacket, this::failure);
 	};
 
@@ -158,19 +158,20 @@ public class PacketReceiverStage extends MosipVerticleAPIManager {
 		File file=null;
 		File temporaryFile=null;
 		try {
-			regProcLogger.debug(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
+			regProcLogger.info(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
 					"", "PacketReceiverStage::processPacket()::entry");
 			Entry<FileUpload,File> fileUploadEntry=getFileFromCtx(ctx).entrySet().iterator().next();
 			file=fileUploadEntry.getValue();
 			temporaryFile=FileUtils.getFile(fileUploadEntry.getKey().uploadedFileName());
 			MessageDTO messageDTO = packetReceiverService.processPacket(file);
 			messageDTO.setMessageBusAddress(MessageBusAddress.PACKET_RECEIVER_OUT);
-			if (messageDTO.getIsValid()) {
-				this.sendMessage(messageDTO);
-			}
+//			if (messageDTO.getIsValid()) {
+//				this.sendMessage(messageDTO);
+//			}  commented to stop packet processing
 		} catch (IOException e) {
 			regProcLogger.error(LoggerFileConstant.SESSIONID.toString(), LoggerFileConstant.REGISTRATIONID.toString(),
 					"", e.getMessage() + ExceptionUtils.getStackTrace(e));
+			e.printStackTrace();
 			throw new UnexpectedException(e.getMessage());
 		} finally {
 			deleteFile(file);

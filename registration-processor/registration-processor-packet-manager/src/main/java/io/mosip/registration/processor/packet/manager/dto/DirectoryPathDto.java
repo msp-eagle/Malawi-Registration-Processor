@@ -26,4 +26,12 @@ public enum DirectoryPathDto {
 		}
 	},
 
+	/** The landing zone. */
+	RESIDENT_PRINT_LANDING_ZONE {
+		@Override
+		public String toString() {
+			return "registration.processor.RESIDENT_PRINT_LANDING_ZONE";
+		}
+	},
+
 }
